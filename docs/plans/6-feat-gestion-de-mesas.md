@@ -288,16 +288,16 @@ Cada tarea se implementa con TDD (test en rojo → código → verde) y deja el 
 
 ## 7. Criterios de aceptación
 
-- [ ] El administrador puede crear, listar, editar y borrar mesas de un restaurante desde web-admin, con id, número, descripción, capacidad y estado (`libre`, `ocupada`, `reservada`).
-- [ ] No se pueden crear dos mesas con el mismo número en el mismo restaurante, ni borrar una mesa ocupada.
-- [ ] Al elegir un restaurante, el cliente debe indicar primero el número de personas y solo ve mesas libres con capacidad suficiente.
-- [ ] Al elegir mesa y pulsar **Continuar**, la mesa queda `ocupada` en la API y el cliente pasa a la carta.
-- [ ] Una mesa ya ocupada no puede ser ocupada por otro cliente (409 y mensaje en pantalla).
-- [ ] El pedido que envía el cliente a cocina y barra lleva el `tableId` de su mesa.
-- [ ] Los empleados ven el estado de todas las mesas de su restaurante y pueden cambiarlo.
-- [ ] Los empleados ven el estado de los pedidos de las mesas ocupadas.
-- [ ] Un cliente no puede crear, editar, borrar ni cambiar el estado de mesas (403).
-- [ ] `npm test` pasa en verde y `npx ng build` compila en las tres webs.
+- [x] El administrador puede crear, listar, editar y borrar mesas de un restaurante desde web-admin, con id, número, descripción, capacidad y estado (`libre`, `ocupada`, `reservada`).
+- [x] No se pueden crear dos mesas con el mismo número en el mismo restaurante, ni borrar una mesa ocupada.
+- [x] Al elegir un restaurante, el cliente debe indicar primero el número de personas y solo ve mesas libres con capacidad suficiente.
+- [x] Al elegir mesa y pulsar **Continuar**, la mesa queda `ocupada` en la API y el cliente pasa a la carta.
+- [x] Una mesa ya ocupada no puede ser ocupada por otro cliente (409 y mensaje en pantalla).
+- [x] El pedido que envía el cliente a cocina y barra lleva el `tableId` de su mesa.
+- [x] Los empleados ven el estado de todas las mesas de su restaurante y pueden cambiarlo.
+- [x] Los empleados ven el estado de los pedidos de las mesas ocupadas.
+- [x] Un cliente no puede crear, editar, borrar ni cambiar el estado de mesas (403).
+- [x] `npm test` pasa en verde y `npx ng build` compila en las tres webs.
 
 ### Tests
 
