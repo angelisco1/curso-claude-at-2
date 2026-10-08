@@ -15,8 +15,11 @@ const router = Router({ mergeParams: true })
 
 router.post('/', authenticate, authorize(['admin']), tableController.create)
 router.get('/', authenticate, authorize(STAFF), tableController.getAll)
+router.get('/available', authenticate, tableController.getAvailable)
 router.get('/:id', authenticate, authorize(STAFF), tableController.getById)
 router.put('/:id', authenticate, authorize(['admin']), tableController.update)
 router.delete('/:id', authenticate, authorize(['admin']), tableController.delete)
+router.patch('/:id/status', authenticate, authorize(STAFF), tableController.changeStatus)
+router.post('/:id/occupy', authenticate, tableController.occupy)
 
 export default router
