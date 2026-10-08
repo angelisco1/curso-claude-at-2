@@ -231,31 +231,35 @@ Cada tarea se implementa con TDD (test en rojo → código → verde) y deja el 
 
 ### 6.1 api (`packages/api`) — tests con `npm test -w @resttek/api`
 
-1. [ ] Crear `models/table.model.ts` con `Table`, `TableStatusType` y `normalizeTableStatus`; añadir `InvalidTableStatusError` en `DomainErrors.ts` — test: `services/table.service.test.ts` (`describe('normalizeTableStatus')`: acepta los 3 estados, normaliza mayúsculas/espacios, lanza con valor inválido o vacío).
-2. [ ] Añadir el resto de errores de mesa a `DomainErrors.ts` y mapearlos en `errorHandler.ts` (`TableNotFoundError` en `NOT_FOUND_ERRORS`; nueva lista `CONFLICT_ERRORS` → 409) — test: `contexts/shared/infrastructure/http/errorHandler.test.ts` (404, 409 y 400 por defecto con un `res` simulado).
-3. [ ] Añadir la tabla `restaurant_tables` a `runInitialMigrations` en `config/database.ts` y crear `repositories/table.repository.ts` con la interfaz y `save` + `findById` en `SqliteTableRepository` — test: `repositories/table.repository.test.ts` (guarda y recupera; `save` actualiza si ya existe).
-4. [ ] `findByRestaurantId` (ordenado por `number`) y `findByRestaurantAndNumber` — test: `table.repository.test.ts`.
-5. [ ] `delete` y `findAvailable(restaurantId, people)` (libres, `capacity >= people`, orden `capacity, number`) — test: `table.repository.test.ts` (excluye ocupadas, reservadas y pequeñas; no mezcla restaurantes).
-6. [ ] `occupyIfFree(id, updatedAt): Promise<boolean>` con `UPDATE ... WHERE id = ? AND status = 'libre'` — test: `table.repository.test.ts` (primera llamada `true`, segunda `false`).
-7. [ ] Crear `repositories/mocks/MockTableRepository.ts` y `TableService.create` (valida número, capacidad y estado; `status` por defecto `libre`; `DuplicatedTableNumberError`) — test: `services/table.service.test.ts`.
-8. [ ] `TableService.getById(restaurantId, id)` (404 si no existe o es de otro restaurante) y `findByRestaurantId` — test: `table.service.test.ts`.
-9. [ ] `TableService.update` (mismas validaciones, número duplicado salvo la propia mesa, conserva `createdAt`) — test: `table.service.test.ts`.
-10. [ ] `TableService.delete` (404 si no existe, `TableOccupiedError` si está ocupada) — test: `table.service.test.ts`.
-11. [ ] `TableService.changeStatus(restaurantId, id, status)` — test: `table.service.test.ts`.
-12. [ ] `TableService.findAvailable(restaurantId, people)` y `occupy(restaurantId, id, people)` (valida `people`; 409 si capacidad insuficiente o `occupyIfFree` devuelve `false`) — test: `table.service.test.ts`.
-13. [ ] Crear `controllers/table.controller.ts` (`create`, `getAll`, `getById`, `update`, `delete` + `toJSON`) y `routes/table.routes.ts` con esas rutas y sus roles; registrar en `app.ts` — test: `routes/table.routes.test.ts` con `supertest` (201/200/204, 403 para `cliente`, 401 sin token, 404, 409 por número duplicado).
-14. [ ] Añadir `getAvailable`, `changeStatus` y `occupy` al controlador y las rutas `GET /available`, `PATCH /:id/status`, `POST /:id/occupy` — test: `table.routes.test.ts` (cliente ve disponibles y ocupa; segundo `occupy` → 409; cliente en `PATCH status` → 403; camarero → 200).
-15. [ ] Añadir mesas de ejemplo al `seed.ts` (`rest-1`: 6 mesas de 2, 4 y 6 plazas; `rest-2`: 4 mesas), solo si el restaurante no tiene ya mesas — verificación: `npm run seed` dos veces sin duplicar.
-16. [ ] Documentar la tabla en `docs/dominio/modelo-datos.md` y los endpoints en `docs/arquitectura/arquitectura-api.md` — verificación: revisión.
+1. [x] Crear `models/table.model.ts` con `Table`, `TableStatusType` y `normalizeTableStatus`; añadir `InvalidTableStatusError` en `DomainErrors.ts` — test: `services/table.service.test.ts` (`describe('normalizeTableStatus')`: acepta los 3 estados, normaliza mayúsculas/espacios, lanza con valor inválido o vacío).
+2. [x] Añadir el resto de errores de mesa a `DomainErrors.ts` y mapearlos en `errorHandler.ts` (`TableNotFoundError` en `NOT_FOUND_ERRORS`; nueva lista `CONFLICT_ERRORS` → 409) — test: `contexts/shared/infrastructure/http/errorHandler.test.ts` (404, 409 y 400 por defecto con un `res` simulado).
+3. [x] Añadir la tabla `restaurant_tables` a `runInitialMigrations` en `config/database.ts` y crear `repositories/table.repository.ts` con la interfaz y `save` + `findById` en `SqliteTableRepository` — test: `repositories/table.repository.test.ts` (guarda y recupera; `save` actualiza si ya existe).
+4. [x] `findByRestaurantId` (ordenado por `number`) y `findByRestaurantAndNumber` — test: `table.repository.test.ts`.
+5. [x] `delete` y `findAvailable(restaurantId, people)` (libres, `capacity >= people`, orden `capacity, number`) — test: `table.repository.test.ts` (excluye ocupadas, reservadas y pequeñas; no mezcla restaurantes).
+6. [x] `occupyIfFree(id, updatedAt): Promise<boolean>` con `UPDATE ... WHERE id = ? AND status = 'libre'` — test: `table.repository.test.ts` (primera llamada `true`, segunda `false`).
+7. [x] Crear `repositories/mocks/MockTableRepository.ts` y `TableService.create` (valida número, capacidad y estado; `status` por defecto `libre`; `DuplicatedTableNumberError`) — test: `services/table.service.test.ts`.
+8. [x] `TableService.getById(restaurantId, id)` (404 si no existe o es de otro restaurante) y `findByRestaurantId` — test: `table.service.test.ts`.
+9. [x] `TableService.update` (mismas validaciones, número duplicado salvo la propia mesa, conserva `createdAt`) — test: `table.service.test.ts`.
+10. [x] `TableService.delete` (404 si no existe, `TableOccupiedError` si está ocupada) — test: `table.service.test.ts`.
+11. [x] `TableService.changeStatus(restaurantId, id, status)` — test: `table.service.test.ts`.
+12. [x] `TableService.findAvailable(restaurantId, people)` y `occupy(restaurantId, id, people)` (valida `people`; 409 si capacidad insuficiente o `occupyIfFree` devuelve `false`) — test: `table.service.test.ts`.
+13. [x] Crear `controllers/table.controller.ts` (`create`, `getAll`, `getById`, `update`, `delete` + `toJSON`) y `routes/table.routes.ts` con esas rutas y sus roles; registrar en `app.ts` — test: `routes/table.routes.test.ts` con `supertest` (201/200/204, 403 para `cliente`, 401 sin token, 404, 409 por número duplicado).
+14. [x] Añadir `getAvailable`, `changeStatus` y `occupy` al controlador y las rutas `GET /available`, `PATCH /:id/status`, `POST /:id/occupy` — test: `table.routes.test.ts` (cliente ve disponibles y ocupa; segundo `occupy` → 409; cliente en `PATCH status` → 403; camarero → 200).
+15. [x] Añadir mesas de ejemplo al `seed.ts` (`rest-1`: 6 mesas de 2, 4 y 6 plazas; `rest-2`: 4 mesas), solo si el restaurante no tiene ya mesas — verificación: `npm run seed` dos veces sin duplicar.
+16. [x] Documentar la tabla en `docs/dominio/modelo-datos.md` y los endpoints en `docs/arquitectura/arquitectura-api.md` — verificación: revisión.
+
+17. [x] (Decisión de equipo D2) Validar `tableId` en `POST /api/v1/orders`: opcional; si viene, la mesa debe ser del restaurante (404 `TableNotFoundError`) y estar `ocupada` (409 `TableNotAvailableError`).
+18. [x] (Decisión de equipo D3) Restringir a `manager`, `camarero` y `cocinero` a las mesas de su propio restaurante (403 `Forbidden: Restaurant mismatch`).
+19. [x] (Decisión de equipo D4) Columna interna `occupied_by`: un cliente ocupa una sola mesa por restaurante; al ocupar otra se libera la anterior en la misma transacción.
 
 ### 6.2 web-admin (`packages/web-admin`) — tests con `npx ng test` desde el paquete
 
-1. [ ] Configurar el target `test` en `angular.json` con `@angular/build:unit-test` (runner Vitest), añadir `vitest` y `jsdom` a `devDependencies`, crear `tsconfig.spec.json` y el script `"test": "ng test --watch=false"` — test: `app.component.spec.ts` mínimo que crea el componente.
-2. [ ] Crear `features/tables/models/table.model.ts` (`Table`, `TableStatus`, `CreateTableDto`, `UpdateTableDto`) y `services/table.service.ts` (`getAll`, `create`, `update`, `delete` sobre `/restaurants/:restaurantId/tables`) — test: `table.service.spec.ts` con `HttpTestingController` (URL y método de cada llamada).
-3. [ ] Crear `store/table.store.ts` (signals `tables`, `loading`, `error`; `loadByRestaurant`, `create`, `update`, `delete`), igual que `IngredientStore` — test: `table.store.spec.ts` con el servicio simulado (actualiza la lista y fija el error *"No se pudieron cargar las mesas."*).
-4. [ ] Crear `pages/table-list` (tabla con número, descripción, capacidad, badge de estado, botones editar/eliminar con `confirm`; mensaje *"Todavía no hay mesas."*; alerta *"No se puede eliminar una mesa ocupada."* si la API responde 409), `tables.routes.ts` y la ruta `tables` en `app.routes.ts` — test: `table-list.component.spec.ts` (pinta una fila por mesa y el mensaje de lista vacía).
-5. [ ] Crear `pages/table-form` (nuevo y edición: número, descripción, capacidad y estado; muestra `err.error.message` de la API) y añadir `new` y `:id/edit` a `tables.routes.ts` — test: `table-form.component.spec.ts` (en alta llama a `store.create` y navega al listado; en edición carga los datos y llama a `store.update`).
-6. [ ] Añadir la tarjeta **Mesas** en `restaurant-dashboard.component.html` y el enlace en el submenú de `shell.component.html` (icono `armchair` de lucide) — verificación: `npx ng build` y navegación manual.
+1. [x] Configurar el target `test` en `angular.json` con `@angular/build:unit-test` (runner Vitest), añadir `vitest` y `jsdom` a `devDependencies`, crear `tsconfig.spec.json` y el script `"test": "ng test --watch=false"` — test: `app.component.spec.ts` mínimo que crea el componente.
+2. [x] Crear `features/tables/models/table.model.ts` (`Table`, `TableStatus`, `CreateTableDto`, `UpdateTableDto`) y `services/table.service.ts` (`getAll`, `create`, `update`, `delete` sobre `/restaurants/:restaurantId/tables`) — test: `table.service.spec.ts` con `HttpTestingController` (URL y método de cada llamada).
+3. [x] Crear `store/table.store.ts` (signals `tables`, `loading`, `error`; `loadByRestaurant`, `create`, `update`, `delete`), igual que `IngredientStore` — test: `table.store.spec.ts` con el servicio simulado (actualiza la lista y fija el error *"No se pudieron cargar las mesas."*).
+4. [x] Crear `pages/table-list` (tabla con número, descripción, capacidad, badge de estado, botones editar/eliminar con `confirm`; mensaje *"Todavía no hay mesas."*; alerta *"No se puede eliminar una mesa ocupada."* si la API responde 409), `tables.routes.ts` y la ruta `tables` en `app.routes.ts` — test: `table-list.component.spec.ts` (pinta una fila por mesa y el mensaje de lista vacía).
+5. [x] Crear `pages/table-form` (nuevo y edición: número, descripción, capacidad y estado; muestra `err.error.message` de la API) y añadir `new` y `:id/edit` a `tables.routes.ts` — test: `table-form.component.spec.ts` (en alta llama a `store.create` y navega al listado; en edición carga los datos y llama a `store.update`).
+6. [x] Añadir la tarjeta **Mesas** en `restaurant-dashboard.component.html` y el enlace en el submenú de `shell.component.html` (icono `armchair` de lucide) — verificación: `npx ng build` y navegación manual.
 
 ### 6.3 web-clientes (`packages/web-clientes`) — tests con `npx ng test` desde el paquete
 
@@ -270,13 +274,13 @@ Cada tarea se implementa con TDD (test en rojo → código → verde) y deja el 
 
 ### 6.4 web-empleados (`packages/web-empleados`) — tests con `npx ng test` desde el paquete
 
-1. [ ] Configurar el target `test` con Vitest (igual que 6.2.1, aprovechando el `tsconfig.spec.json` existente) — test: `app.component.spec.ts` mínimo.
-2. [ ] Crear `features/tables/models/table.model.ts` y `services/table.service.ts` (`getAll(restaurantId)`, `updateStatus(restaurantId, tableId, status)`) — test: `table.service.spec.ts` con `HttpTestingController`.
-3. [ ] Crear `store/table.store.ts` (`tables`, `loading`, `error`; `loadTables`, `changeStatus`, `startPolling`/`stopPolling` cada 30 s como `OrderStore`) — test: `table.store.spec.ts` (actualiza el estado de la mesa en la lista; fija error si falla).
-4. [ ] Crear la función pura `utils/group-orders-by-table.ts` que devuelve un `Map<tableId, Order[]>` solo para mesas ocupadas — test: `group-orders-by-table.spec.ts` (ignora pedidos sin mesa y mesas libres/reservadas).
-5. [ ] Crear `pages/mesas` con una tarjeta por mesa (número, descripción, capacidad, badge de estado y `<select>` para cambiarlo); ruta `mesas` en `app.routes.ts` — test: `mesas.component.spec.ts` (pinta las mesas y al cambiar el select llama a `tableStore.changeStatus`).
-6. [ ] En las tarjetas de mesas ocupadas, listar los platos de sus pedidos activos con su estado usando `OrderStore` + `groupOrdersByTable`, o *"Sin pedidos activos"* — test: `mesas.component.spec.ts`.
-7. [ ] Añadir `canSeeMesas` (manager, camarero, cocinero) y el enlace **Mesas** (icono `armchair`/`layout-grid`) en `shell.component` — verificación: `npx ng build` y navegación manual.
+1. [x] Configurar el target `test` con Vitest (igual que 6.2.1, aprovechando el `tsconfig.spec.json` existente) — test: `app.component.spec.ts` mínimo.
+2. [x] Crear `features/tables/models/table.model.ts` y `services/table.service.ts` (`getAll(restaurantId)`, `updateStatus(restaurantId, tableId, status)`) — test: `table.service.spec.ts` con `HttpTestingController`.
+3. [x] Crear `store/table.store.ts` (`tables`, `loading`, `error`; `loadTables`, `changeStatus`, `startPolling`/`stopPolling` cada 30 s como `OrderStore`) — test: `table.store.spec.ts` (actualiza el estado de la mesa en la lista; fija error si falla).
+4. [x] Crear la función pura `utils/group-orders-by-table.ts` que devuelve un `Map<tableId, Order[]>` solo para mesas ocupadas — test: `group-orders-by-table.spec.ts` (ignora pedidos sin mesa y mesas libres/reservadas).
+5. [x] Crear `pages/mesas` con una tarjeta por mesa (número, descripción, capacidad, badge de estado y `<select>` para cambiarlo); ruta `mesas` en `app.routes.ts` — test: `mesas.component.spec.ts` (pinta las mesas y al cambiar el select llama a `tableStore.changeStatus`).
+6. [x] En las tarjetas de mesas ocupadas, listar los platos de sus pedidos activos con su estado usando `OrderStore` + `groupOrdersByTable`, o *"Sin pedidos activos"* — test: `mesas.component.spec.ts`.
+7. [x] Añadir `canSeeMesas` (manager, camarero, cocinero) y el enlace **Mesas** (icono `armchair`/`layout-grid`) en `shell.component` — verificación: `npx ng build` y navegación manual.
 
 ## 7. Criterios de aceptación
 
