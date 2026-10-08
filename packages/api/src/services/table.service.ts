@@ -1,0 +1,87 @@
+import { randomUUID } from 'crypto'
+import type { Table } from '@models/table.model.js'
+import { normalizeTableStatus } from '@models/table.model.js'
+import type { TableRepository } from '@repositories/table.repository.js'
+import {
+    RestaurantIdRequiredError,
+    InvalidTableNumberError,
+    InvalidCapacityError,
+    DuplicatedTableNumberError
+} from '@errors/DomainErrors.js'
+
+export interface CreateTableDTO {
+    restaurantId: string
+    number: number
+    description?: string | null
+    capacity: number
+    status?: string
+}
+
+const isPositiveInteger = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isInteger(value) && value > 0
+
+export class TableService {
+    constructor(private readonly tableRepository: TableRepository) {}
+
+    async create(dto: CreateTableDTO): Promise<Table> {
+        const now = new Date().toISOString()
+        const table = this.buildTable({
+            id: randomUUID(),
+            restaurantId: dto.restaurantId,
+            number: dto.number,
+            description: dto.description,
+            capacity: dto.capacity,
+            status: dto.status ?? 'libre',
+            occupiedBy: null,
+            createdAt: now,
+            updatedAt: now
+        })
+
+        await this.ensureNumberIsUnique(table)
+        await this.tableRepository.save(table)
+        return table
+    }
+
+    private async ensureNumberIsUnique(table: Table): Promise<void> {
+        const sameNumber = await this.tableRepository.findByRestaurantAndNumber(table.restaurantId, table.number)
+        if (sameNumber && sameNumber.id !== table.id) {
+            throw new DuplicatedTableNumberError()
+        }
+    }
+
+    private buildTable(props: {
+        id: string
+        restaurantId: string
+        number: unknown
+        description: string | null | undefined
+        capacity: unknown
+        status: string
+        occupiedBy: string | null
+        createdAt: string
+        updatedAt: string
+    }): Table {
+        if (!props.restaurantId || props.restaurantId.trim() === '') {
+            throw new RestaurantIdRequiredError()
+        }
+        if (!isPositiveInteger(props.number)) {
+            throw new InvalidTableNumberError()
+        }
+        if (!isPositiveInteger(props.capacity)) {
+            throw new InvalidCapacityError()
+        }
+
+        const description = typeof props.description === 'string' ? props.description.trim() : ''
+
+        return {
+            id: props.id,
+            restaurantId: props.restaurantId,
+            number: props.number,
+            description: description === '' ? null : description,
+            capacity: props.capacity,
+            status: normalizeTableStatus(props.status),
+            occupiedBy: props.occupiedBy,
+            createdAt: props.createdAt,
+            updatedAt: props.updatedAt
+        }
+    }
+}
