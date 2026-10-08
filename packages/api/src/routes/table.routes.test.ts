@@ -343,4 +343,44 @@ describe('Table routes', () => {
             expect(res.status).toBe(403)
         })
     })
+
+    describe('restaurant restriction for employees', () => {
+        const REST_2 = '/api/v1/restaurants/rest-2/tables'
+
+        it.each(['manager', 'camarero', 'cocinero'])('should respond 403 when a %s accesses another restaurant', async (role) => {
+            const res = await request(app).get(REST_2).set('Authorization', tokenFor(role, 'rest-1'))
+
+            expect(res.status).toBe(403)
+            expect(res.body).toEqual({ error: 'Forbidden: Restaurant mismatch' })
+        })
+
+        it('should respond 403 when an employee changes the status of a table of another restaurant', async () => {
+            const other = await createTable({ number: 70, capacity: 2 }, 'rest-2')
+
+            const res = await request(app)
+                .patch(`${REST_2}/${other.body.id}/status`)
+                .set('Authorization', WAITER)
+                .send({ status: 'libre' })
+
+            expect(res.status).toBe(403)
+        })
+
+        it('should let an employee access their own restaurant', async () => {
+            const res = await request(app).get(REST_2).set('Authorization', tokenFor('camarero', 'rest-2'))
+
+            expect(res.status).toBe(200)
+        })
+
+        it('should not restrict admins', async () => {
+            const res = await request(app).get(REST_2).set('Authorization', ADMIN)
+
+            expect(res.status).toBe(200)
+        })
+
+        it('should not restrict clients on available tables', async () => {
+            const res = await request(app).get(`${REST_2}/available?people=1`).set('Authorization', CLIENT)
+
+            expect(res.status).toBe(200)
+        })
+    })
 })
