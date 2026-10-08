@@ -4,6 +4,8 @@ import { AuthStore } from '@resttek/web-shared';
 import { MesasComponent } from './mesas.component';
 import { TableStore } from '../../store/table.store';
 import { Table, TableStatus } from '../../models/table.model';
+import { OrderStore } from '../../../orders/store/order.store';
+import { Order } from '../../../orders/models/order.model';
 
 const buildTable = (overrides: Partial<Table> = {}): Table => ({
   id: 't1',
@@ -14,6 +16,16 @@ const buildTable = (overrides: Partial<Table> = {}): Table => ({
   status: 'libre',
   createdAt: '2026-10-08T10:00:00.000Z',
   updatedAt: '2026-10-08T10:00:00.000Z',
+  ...overrides
+});
+
+const buildOrder = (overrides: Partial<Order> = {}): Order => ({
+  id: 'o1',
+  restaurantId: 'rest-1',
+  tableId: 't1',
+  clientId: null,
+  createdAt: '2026-10-08T10:00:00.000Z',
+  items: [],
   ...overrides
 });
 
@@ -28,6 +40,11 @@ describe('MesasComponent', () => {
     startPolling: ReturnType<typeof vi.fn>;
     stopPolling: ReturnType<typeof vi.fn>;
     changeStatus: ReturnType<typeof vi.fn>;
+  };
+  let orderStore: {
+    orders: ReturnType<typeof signal<Order[]>>;
+    startPolling: ReturnType<typeof vi.fn>;
+    stopPolling: ReturnType<typeof vi.fn>;
   };
 
   const render = async (initialTables: Table[]) => {
@@ -47,10 +64,16 @@ describe('MesasComponent', () => {
       stopPolling: vi.fn(),
       changeStatus: vi.fn().mockResolvedValue(undefined)
     };
+    orderStore = {
+      orders: signal<Order[]>([]),
+      startPolling: vi.fn(),
+      stopPolling: vi.fn()
+    };
     TestBed.configureTestingModule({
       imports: [MesasComponent],
       providers: [
         { provide: TableStore, useValue: tableStore },
+        { provide: OrderStore, useValue: orderStore },
         { provide: AuthStore, useValue: { user: signal({ restaurantId: 'rest-1' }) } }
       ]
     });
@@ -117,5 +140,65 @@ describe('MesasComponent', () => {
     await fixture.whenStable();
 
     expect(select.value).toBe('libre');
+  });
+
+  it('starts and stops polling the active orders of the restaurant', async () => {
+    await render([]);
+
+    expect(orderStore.startPolling).toHaveBeenCalledWith('rest-1');
+
+    fixture.destroy();
+    expect(orderStore.stopPolling).toHaveBeenCalled();
+  });
+
+  it('lists the dishes of the active orders of an occupied table with their status', async () => {
+    orderStore.orders.set([
+      buildOrder({
+        id: 'o1',
+        tableId: 't1',
+        items: [
+          { id: 'i1', dishId: 'd1', quantity: 2, notes: null, status: 'preparando', dishName: 'Paella' },
+          { id: 'i2', dishId: 'd2', quantity: 1, notes: null, status: 'listo', dishName: 'Caña' }
+        ]
+      }),
+      buildOrder({
+        id: 'o2',
+        tableId: 't1',
+        items: [{ id: 'i3', dishId: 'd3', quantity: 1, notes: null, status: 'pendiente', dishName: 'Flan' }]
+      })
+    ]);
+    await render([buildTable({ id: 't1', status: 'ocupada' })]);
+
+    const items = element.querySelectorAll('.table-card .order-item');
+    expect(items.length).toBe(3);
+    expect(items[0].textContent).toContain('2x');
+    expect(items[0].textContent).toContain('Paella');
+    expect(items[0].querySelector('.badge-preparando')?.textContent?.trim()).toBe('preparando');
+    expect(items[1].textContent).toContain('Caña');
+    expect(items[1].querySelector('.badge-listo')).not.toBeNull();
+    expect(items[2].textContent).toContain('Flan');
+    expect(element.textContent).not.toContain('Sin pedidos activos');
+  });
+
+  it('shows "Sin pedidos activos" for an occupied table without orders', async () => {
+    await render([buildTable({ id: 't1', status: 'ocupada' })]);
+
+    expect(element.querySelector('.table-card')?.textContent).toContain('Sin pedidos activos');
+  });
+
+  it('does not show orders for free or reserved tables', async () => {
+    orderStore.orders.set([
+      buildOrder({
+        tableId: 't1',
+        items: [{ id: 'i1', dishId: 'd1', quantity: 1, notes: null, status: 'pendiente', dishName: 'Paella' }]
+      })
+    ]);
+    await render([
+      buildTable({ id: 't1', status: 'libre' }),
+      buildTable({ id: 't2', number: 2, status: 'reservada' })
+    ]);
+
+    expect(element.querySelectorAll('.order-item').length).toBe(0);
+    expect(element.textContent).not.toContain('Sin pedidos activos');
   });
 });

@@ -85,3 +85,58 @@
   background: var(--yellow-glow);
   color: var(--yellow);
 }
+
+.table-orders {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.item-quantity {
+  font-weight: 600;
+  color: var(--green-light);
+}
+
+.order-item .badge {
+  text-transform: capitalize;
+}
+
+.item-name {
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.no-orders {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.badge-pendiente {
+  background: var(--yellow-glow);
+  color: var(--yellow);
+}
+
+.badge-preparando {
+  background: var(--orange-glow);
+  color: var(--orange);
+}
+
+.badge-listo {
+  background: var(--green-glow);
+  color: var(--green-light);
+}
+
+.badge-entregado {
+  background: rgba(139, 146, 168, 0.1);
+  color: var(--text-muted);
+}

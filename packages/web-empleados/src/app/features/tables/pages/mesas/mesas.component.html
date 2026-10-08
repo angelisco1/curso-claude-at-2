@@ -36,6 +36,21 @@
                 }
               </select>
             </label>
+            @if (ordersByTable().get(table.id); as orders) {
+              <div class="table-orders">
+                @for (order of orders; track order.id) {
+                  @for (item of order.items; track item.id) {
+                    <div class="order-item">
+                      <span class="item-quantity">{{ item.quantity }}x</span>
+                      <span class="item-name">{{ item.dishName || 'Producto' }}</span>
+                      <span [class]="'badge badge-' + item.status">{{ item.status }}</span>
+                    </div>
+                  }
+                } @empty {
+                  <p class="no-orders">Sin pedidos activos</p>
+                }
+              </div>
+            }
           </div>
         </div>
       }

@@ -1,7 +1,9 @@
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, computed, OnInit, OnDestroy } from '@angular/core';
 import { AuthStore } from '@resttek/web-shared';
 import { TableStore } from '../../store/table.store';
 import { Table, TableStatus } from '../../models/table.model';
+import { OrderStore } from '../../../orders/store/order.store';
+import { groupOrdersByTable } from '../../utils/group-orders-by-table';
 
 @Component({
   selector: 'app-mesas',
@@ -12,6 +14,11 @@ import { Table, TableStatus } from '../../models/table.model';
 export class MesasComponent implements OnInit, OnDestroy {
   private readonly authStore = inject(AuthStore);
   readonly tableStore = inject(TableStore);
+  private readonly orderStore = inject(OrderStore);
+
+  readonly ordersByTable = computed(() =>
+    groupOrdersByTable(this.tableStore.tables(), this.orderStore.orders())
+  );
 
   readonly statusOptions: { value: TableStatus; label: string }[] = [
     { value: 'libre', label: 'Libre' },
@@ -26,11 +33,13 @@ export class MesasComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (this.restaurantId) {
       this.tableStore.startPolling(this.restaurantId);
+      this.orderStore.startPolling(this.restaurantId);
     }
   }
 
   ngOnDestroy(): void {
     this.tableStore.stopPolling();
+    this.orderStore.stopPolling();
   }
 
   async changeStatus(table: Table, event: Event): Promise<void> {
