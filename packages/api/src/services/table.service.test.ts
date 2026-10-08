@@ -7,7 +7,8 @@ import {
     InvalidTableNumberError,
     InvalidCapacityError,
     DuplicatedTableNumberError,
-    RestaurantIdRequiredError
+    RestaurantIdRequiredError,
+    TableNotFoundError
 } from '@errors/DomainErrors.js'
 
 describe('normalizeTableStatus', () => {
@@ -111,6 +112,36 @@ describe('TableService', () => {
             const result = await service.create({ ...validInput, restaurantId: 'r2' })
 
             expect(result.restaurantId).toBe('r2')
+        })
+    })
+
+    describe('getById', () => {
+        it('should return the table of the restaurant', async () => {
+            const created = await service.create(validInput)
+
+            expect(await service.getById('r1', created.id)).toEqual(created)
+        })
+
+        it('should throw TableNotFoundError for a non-existent id', async () => {
+            await expect(service.getById('r1', 'missing')).rejects.toThrow(TableNotFoundError)
+        })
+
+        it('should throw TableNotFoundError when the table belongs to another restaurant', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.getById('r2', created.id)).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('findByRestaurantId', () => {
+        it('should return only the tables of the restaurant ordered by number', async () => {
+            await service.create({ ...validInput, number: 3 })
+            await service.create({ ...validInput, number: 1 })
+            await service.create({ ...validInput, restaurantId: 'r2', number: 2 })
+
+            const result = await service.findByRestaurantId('r1')
+
+            expect(result.map(t => t.number)).toEqual([1, 3])
         })
     })
 })

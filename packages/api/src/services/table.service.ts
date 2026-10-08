@@ -6,7 +6,8 @@ import {
     RestaurantIdRequiredError,
     InvalidTableNumberError,
     InvalidCapacityError,
-    DuplicatedTableNumberError
+    DuplicatedTableNumberError,
+    TableNotFoundError
 } from '@errors/DomainErrors.js'
 
 export interface CreateTableDTO {
@@ -40,6 +41,18 @@ export class TableService {
         await this.ensureNumberIsUnique(table)
         await this.tableRepository.save(table)
         return table
+    }
+
+    async getById(restaurantId: string, id: string): Promise<Table> {
+        const table = await this.tableRepository.findById(id)
+        if (!table || table.restaurantId !== restaurantId) {
+            throw new TableNotFoundError()
+        }
+        return table
+    }
+
+    async findByRestaurantId(restaurantId: string): Promise<Table[]> {
+        return this.tableRepository.findByRestaurantId(restaurantId)
     }
 
     private async ensureNumberIsUnique(table: Table): Promise<void> {
