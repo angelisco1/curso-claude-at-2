@@ -9,11 +9,12 @@ interface TableRow {
     description: string | null
     capacity: number
     status: string
+    occupiedBy: string | null
     createdAt: string
     updatedAt: string
 }
 
-const SELECT_COLUMNS = 'SELECT id, restaurant_id as restaurantId, number, description, capacity, status, created_at as createdAt, updated_at as updatedAt FROM restaurant_tables'
+const SELECT_COLUMNS = 'SELECT id, restaurant_id as restaurantId, number, description, capacity, status, occupied_by as occupiedBy, created_at as createdAt, updated_at as updatedAt FROM restaurant_tables'
 
 export interface TableRepository {
     findById(id: string): Promise<Table | null>
@@ -21,7 +22,7 @@ export interface TableRepository {
     findByRestaurantAndNumber(restaurantId: string, number: number): Promise<Table | null>
     findAvailable(restaurantId: string, people: number): Promise<Table[]>
     save(table: Table): Promise<void>
-    occupyIfFree(id: string, updatedAt: string): Promise<boolean>
+    occupyIfFree(id: string, occupiedBy: string, updatedAt: string): Promise<boolean>
     delete(id: string): Promise<void>
 }
 
@@ -57,23 +58,34 @@ export class SqliteTableRepository implements TableRepository {
         const existing = await this.findById(table.id)
         if (existing) {
             await this.db.run(
-                'UPDATE restaurant_tables SET number = ?, description = ?, capacity = ?, status = ?, updated_at = ? WHERE id = ?',
-                [table.number, table.description, table.capacity, table.status, table.updatedAt, table.id]
+                'UPDATE restaurant_tables SET number = ?, description = ?, capacity = ?, status = ?, occupied_by = ?, updated_at = ? WHERE id = ?',
+                [table.number, table.description, table.capacity, table.status, table.occupiedBy, table.updatedAt, table.id]
             )
         } else {
             await this.db.run(
-                'INSERT INTO restaurant_tables (id, restaurant_id, number, description, capacity, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [table.id, table.restaurantId, table.number, table.description, table.capacity, table.status, table.createdAt, table.updatedAt]
+                'INSERT INTO restaurant_tables (id, restaurant_id, number, description, capacity, status, occupied_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [table.id, table.restaurantId, table.number, table.description, table.capacity, table.status, table.occupiedBy, table.createdAt, table.updatedAt]
             )
         }
     }
 
-    async occupyIfFree(id: string, updatedAt: string): Promise<boolean> {
+    /**
+     * Occupies the table only if it is free and, in the same statement, frees any other
+     * table the same user occupies in that restaurant. Being a single UPDATE it is atomic:
+     * if the target is not free nothing changes and the previous table is kept.
+     */
+    async occupyIfFree(id: string, occupiedBy: string, updatedAt: string): Promise<boolean> {
         const result = await this.db.run(
-            "UPDATE restaurant_tables SET status = 'ocupada', updated_at = ? WHERE id = ? AND status = 'libre'",
-            [updatedAt, id]
+            `UPDATE restaurant_tables
+             SET status = CASE WHEN id = ? THEN 'ocupada' ELSE 'libre' END,
+                 occupied_by = CASE WHEN id = ? THEN ? ELSE NULL END,
+                 updated_at = ?
+             WHERE restaurant_id = (SELECT restaurant_id FROM restaurant_tables WHERE id = ?)
+               AND (id = ? OR (occupied_by = ? AND status = 'ocupada'))
+               AND EXISTS (SELECT 1 FROM restaurant_tables WHERE id = ? AND status = 'libre')`,
+            [id, id, occupiedBy, updatedAt, id, id, occupiedBy, id]
         )
-        return result.changes === 1
+        return result.changes > 0
     }
 
     async delete(id: string): Promise<void> {
@@ -88,6 +100,7 @@ export class SqliteTableRepository implements TableRepository {
             description: row.description,
             capacity: row.capacity,
             status: normalizeTableStatus(row.status),
+            occupiedBy: row.occupiedBy,
             createdAt: row.createdAt,
             updatedAt: row.updatedAt
         }

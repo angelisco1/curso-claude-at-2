@@ -10,6 +10,7 @@ const buildTable = (overrides: Partial<Table> = {}): Table => ({
     description: 'Terraza',
     capacity: 4,
     status: 'libre',
+    occupiedBy: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides
@@ -36,6 +37,8 @@ describe('SqliteTableRepository (Integration)', () => {
     afterAll(async () => {
         await db.close()
     })
+
+    const NOW = '2026-01-03T00:00:00.000Z'
 
     describe('save and findById', () => {
         it('should save and find a table by id', async () => {
@@ -146,25 +149,74 @@ describe('SqliteTableRepository (Integration)', () => {
         it('should occupy a free table only once', async () => {
             await repo.save(buildTable({ id: 'occ-1', restaurantId: 'r4', number: 10 }))
 
-            const first = await repo.occupyIfFree('occ-1', '2026-01-03T00:00:00.000Z')
-            const second = await repo.occupyIfFree('occ-1', '2026-01-04T00:00:00.000Z')
+            const first = await repo.occupyIfFree('occ-1', 'user-1', '2026-01-03T00:00:00.000Z')
+            const second = await repo.occupyIfFree('occ-1', 'user-2', '2026-01-04T00:00:00.000Z')
 
             expect(first).toBe(true)
             expect(second).toBe(false)
             const found = await repo.findById('occ-1')
             expect(found?.status).toBe('ocupada')
+            expect(found?.occupiedBy).toBe('user-1')
             expect(found?.updatedAt).toBe('2026-01-03T00:00:00.000Z')
         })
 
         it('should not occupy a reserved table', async () => {
             await repo.save(buildTable({ id: 'occ-2', restaurantId: 'r4', number: 11, status: 'reservada' }))
 
-            expect(await repo.occupyIfFree('occ-2', '2026-01-03T00:00:00.000Z')).toBe(false)
+            expect(await repo.occupyIfFree('occ-2', 'user-1', NOW)).toBe(false)
             expect((await repo.findById('occ-2'))?.status).toBe('reservada')
         })
 
         it('should return false for a non-existent table', async () => {
-            expect(await repo.occupyIfFree('missing', '2026-01-03T00:00:00.000Z')).toBe(false)
+            expect(await repo.occupyIfFree('missing', 'user-1', NOW)).toBe(false)
+        })
+    })
+
+    describe('occupyIfFree releasing the previous table of the same user', () => {
+        beforeAll(async () => {
+            await repo.save(buildTable({ id: 'move-a', restaurantId: 'r4', number: 20 }))
+            await repo.save(buildTable({ id: 'move-b', restaurantId: 'r4', number: 21 }))
+            await repo.save(buildTable({ id: 'move-busy', restaurantId: 'r4', number: 22, status: 'ocupada', occupiedBy: 'someone-else' }))
+            await repo.save(buildTable({ id: 'move-other-restaurant', restaurantId: 'r3', number: 20 }))
+        })
+
+        it('should free the previous table of the user in the same restaurant', async () => {
+            await repo.occupyIfFree('move-a', 'mover', NOW)
+
+            const occupied = await repo.occupyIfFree('move-b', 'mover', NOW)
+
+            expect(occupied).toBe(true)
+            const previous = await repo.findById('move-a')
+            expect(previous?.status).toBe('libre')
+            expect(previous?.occupiedBy).toBeNull()
+            expect((await repo.findById('move-b'))?.occupiedBy).toBe('mover')
+        })
+
+        it('should keep the previous table when the new one is not free', async () => {
+            const occupied = await repo.occupyIfFree('move-busy', 'mover', NOW)
+
+            expect(occupied).toBe(false)
+            const current = await repo.findById('move-b')
+            expect(current?.status).toBe('ocupada')
+            expect(current?.occupiedBy).toBe('mover')
+            expect((await repo.findById('move-busy'))?.occupiedBy).toBe('someone-else')
+        })
+
+        it('should not free tables of the user in other restaurants', async () => {
+            await repo.occupyIfFree('move-other-restaurant', 'mover', NOW)
+
+            expect((await repo.findById('move-b'))?.status).toBe('ocupada')
+            expect((await repo.findById('move-other-restaurant'))?.occupiedBy).toBe('mover')
+        })
+    })
+
+    describe('save with occupiedBy', () => {
+        it('should persist and clear occupiedBy', async () => {
+            await repo.save(buildTable({ id: 'owner', restaurantId: 'r4', number: 30, status: 'ocupada', occupiedBy: 'user-9' }))
+            expect((await repo.findById('owner'))?.occupiedBy).toBe('user-9')
+
+            await repo.save(buildTable({ id: 'owner', restaurantId: 'r4', number: 30, status: 'libre', occupiedBy: null }))
+            expect((await repo.findById('owner'))?.occupiedBy).toBeNull()
         })
     })
 })

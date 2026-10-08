@@ -172,6 +172,7 @@ export class Database {
                 description TEXT,
                 capacity INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'libre',
+                occupied_by TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(restaurant_id, number),

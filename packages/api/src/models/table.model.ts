@@ -11,6 +11,7 @@ export interface Table {
     description: string | null
     capacity: number
     status: TableStatusType
+    occupiedBy: string | null
     createdAt: string
     updatedAt: string
 }
