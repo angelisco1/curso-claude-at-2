@@ -5,6 +5,7 @@ import { LucideAngularModule } from 'lucide-angular'
 import { DishService } from '../../core/services/dish.service'
 import { RestaurantService } from '../../core/services/restaurant.service'
 import { CartStore, Dish } from '../../core/store/cart.store'
+import { TableSelectionStore } from '../../core/store/table-selection.store'
 import { Restaurant } from '../../core/models/restaurant.model'
 
 @Component({
@@ -18,6 +19,12 @@ import { Restaurant } from '../../core/models/restaurant.model'
           <a routerLink="/restaurants" class="back-link">← Volver a restaurantes</a>
           <h1>{{ restaurant()?.name || 'Cargando...' }}</h1>
         </div>
+        @if (table(); as table) {
+          <div class="table-info">
+            <span class="badge">Mesa {{ table.number }}</span>
+            <a [routerLink]="['/restaurants', restaurantId, 'table']" class="change-table-link">Cambiar mesa</a>
+          </div>
+        }
       </div>
 
       @if (loading()) {
@@ -93,6 +100,15 @@ import { Restaurant } from '../../core/models/restaurant.model'
       color: var(--text-muted);
       margin-bottom: 8px;
       display: inline-block;
+    }
+    .table-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .change-table-link {
+      font-size: 13px;
+      color: var(--green-light);
     }
     .menu-layout {
       display: grid;
@@ -212,6 +228,10 @@ export class RestaurantMenuComponent implements OnInit {
   private readonly dishService = inject(DishService)
   private readonly restaurantService = inject(RestaurantService)
   readonly cartStore = inject(CartStore)
+  private readonly tableSelectionStore = inject(TableSelectionStore)
+
+  readonly restaurantId = this.route.snapshot.paramMap.get('id')!
+  readonly table = computed(() => this.tableSelectionStore.tableFor(this.restaurantId))
 
   readonly restaurant = signal<Restaurant | null>(null)
   readonly dishes = signal<Dish[]>([])
@@ -233,8 +253,7 @@ export class RestaurantMenuComponent implements OnInit {
   })
 
   ngOnInit(): void {
-    const restaurantId = this.route.snapshot.paramMap.get('id')!
-    this.loadData(restaurantId)
+    this.loadData(this.restaurantId)
   }
 
   private loadData(restaurantId: string): void {
