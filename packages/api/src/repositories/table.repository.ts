@@ -21,6 +21,7 @@ export interface TableRepository {
     findByRestaurantAndNumber(restaurantId: string, number: number): Promise<Table | null>
     findAvailable(restaurantId: string, people: number): Promise<Table[]>
     save(table: Table): Promise<void>
+    occupyIfFree(id: string, updatedAt: string): Promise<boolean>
     delete(id: string): Promise<void>
 }
 
@@ -65,6 +66,14 @@ export class SqliteTableRepository implements TableRepository {
                 [table.id, table.restaurantId, table.number, table.description, table.capacity, table.status, table.createdAt, table.updatedAt]
             )
         }
+    }
+
+    async occupyIfFree(id: string, updatedAt: string): Promise<boolean> {
+        const result = await this.db.run(
+            "UPDATE restaurant_tables SET status = 'ocupada', updated_at = ? WHERE id = ? AND status = 'libre'",
+            [updatedAt, id]
+        )
+        return result.changes === 1
     }
 
     async delete(id: string): Promise<void> {
