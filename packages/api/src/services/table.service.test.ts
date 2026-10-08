@@ -144,4 +144,74 @@ describe('TableService', () => {
             expect(result.map(t => t.number)).toEqual([1, 3])
         })
     })
+
+    describe('update', () => {
+        const updateInput = { number: 7, description: 'Interior', capacity: 6, status: 'reservada' }
+
+        it('should update an existing table keeping id, restaurant and createdAt', async () => {
+            const created = await service.create(validInput)
+
+            const updated = await service.update('r1', created.id, updateInput)
+
+            expect(updated).toMatchObject({
+                id: created.id,
+                restaurantId: 'r1',
+                number: 7,
+                description: 'Interior',
+                capacity: 6,
+                status: 'reservada',
+                createdAt: created.createdAt
+            })
+            expect(await repo.findById(created.id)).toEqual(updated)
+        })
+
+        it('should allow keeping the same number', async () => {
+            const created = await service.create(validInput)
+
+            const updated = await service.update('r1', created.id, { ...updateInput, number: 5 })
+
+            expect(updated.number).toBe(5)
+        })
+
+        it('should throw DuplicatedTableNumberError when another table has the number', async () => {
+            const created = await service.create(validInput)
+            await service.create({ ...validInput, number: 7 })
+
+            await expect(service.update('r1', created.id, updateInput)).rejects.toThrow(DuplicatedTableNumberError)
+        })
+
+        it('should throw TableNotFoundError for a non-existent table or another restaurant', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.update('r1', 'missing', updateInput)).rejects.toThrow(TableNotFoundError)
+            await expect(service.update('r2', created.id, updateInput)).rejects.toThrow(TableNotFoundError)
+        })
+
+        it('should validate number, capacity and status', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.update('r1', created.id, { ...updateInput, number: 0 })).rejects.toThrow(InvalidTableNumberError)
+            await expect(service.update('r1', created.id, { ...updateInput, capacity: -1 })).rejects.toThrow(InvalidCapacityError)
+            await expect(service.update('r1', created.id, { ...updateInput, status: 'rota' })).rejects.toThrow(InvalidTableStatusError)
+            await expect(service.update('r1', created.id, { ...updateInput, status: undefined as any })).rejects.toThrow(InvalidTableStatusError)
+        })
+
+        it('should clear the occupant when the table is no longer occupied', async () => {
+            const created = await service.create(validInput)
+            await repo.occupyIfFree(created.id, 'client-1', created.updatedAt)
+
+            const updated = await service.update('r1', created.id, { ...updateInput, status: 'libre' })
+
+            expect(updated.occupiedBy).toBeNull()
+        })
+
+        it('should keep the occupant when the table stays occupied', async () => {
+            const created = await service.create(validInput)
+            await repo.occupyIfFree(created.id, 'client-1', created.updatedAt)
+
+            const updated = await service.update('r1', created.id, { ...updateInput, status: 'ocupada' })
+
+            expect(updated.occupiedBy).toBe('client-1')
+        })
+    })
 })

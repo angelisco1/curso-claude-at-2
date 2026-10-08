@@ -18,6 +18,13 @@ export interface CreateTableDTO {
     status?: string
 }
 
+export interface UpdateTableDTO {
+    number: number
+    description?: string | null
+    capacity: number
+    status: string
+}
+
 const isPositiveInteger = (value: unknown): value is number =>
     typeof value === 'number' && Number.isInteger(value) && value > 0
 
@@ -41,6 +48,26 @@ export class TableService {
         await this.ensureNumberIsUnique(table)
         await this.tableRepository.save(table)
         return table
+    }
+
+    async update(restaurantId: string, id: string, dto: UpdateTableDTO): Promise<Table> {
+        const existing = await this.getById(restaurantId, id)
+
+        const updated = this.buildTable({
+            id: existing.id,
+            restaurantId: existing.restaurantId,
+            number: dto.number,
+            description: dto.description,
+            capacity: dto.capacity,
+            status: dto.status,
+            occupiedBy: existing.occupiedBy,
+            createdAt: existing.createdAt,
+            updatedAt: new Date().toISOString()
+        })
+
+        await this.ensureNumberIsUnique(updated)
+        await this.tableRepository.save(updated)
+        return updated
     }
 
     async getById(restaurantId: string, id: string): Promise<Table> {
@@ -83,6 +110,7 @@ export class TableService {
             throw new InvalidCapacityError()
         }
 
+        const status = normalizeTableStatus(props.status)
         const description = typeof props.description === 'string' ? props.description.trim() : ''
 
         return {
@@ -91,8 +119,8 @@ export class TableService {
             number: props.number,
             description: description === '' ? null : description,
             capacity: props.capacity,
-            status: normalizeTableStatus(props.status),
-            occupiedBy: props.occupiedBy,
+            status,
+            occupiedBy: status === 'ocupada' ? props.occupiedBy : null,
             createdAt: props.createdAt,
             updatedAt: props.updatedAt
         }
