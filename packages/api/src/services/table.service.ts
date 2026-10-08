@@ -8,7 +8,9 @@ import {
     InvalidCapacityError,
     DuplicatedTableNumberError,
     TableNotFoundError,
-    TableOccupiedError
+    TableOccupiedError,
+    TableNotAvailableError,
+    InvalidPeopleError
 } from '@errors/DomainErrors.js'
 
 export interface CreateTableDTO {
@@ -84,6 +86,31 @@ export class TableService {
         return updated
     }
 
+    async findAvailable(restaurantId: string, people: number): Promise<Table[]> {
+        this.ensureValidPeople(people)
+        return this.tableRepository.findAvailable(restaurantId, people)
+    }
+
+    async occupy(restaurantId: string, id: string, people: number, userId: string): Promise<Table> {
+        this.ensureValidPeople(people)
+        const table = await this.getById(restaurantId, id)
+
+        if (table.status === 'ocupada' && table.occupiedBy === userId) {
+            return table
+        }
+        if (table.capacity < people) {
+            throw new TableNotAvailableError()
+        }
+
+        const updatedAt = new Date().toISOString()
+        const occupied = await this.tableRepository.occupyIfFree(id, userId, updatedAt)
+        if (!occupied) {
+            throw new TableNotAvailableError()
+        }
+
+        return { ...table, status: 'ocupada', occupiedBy: userId, updatedAt }
+    }
+
     async delete(restaurantId: string, id: string): Promise<void> {
         const existing = await this.getById(restaurantId, id)
         if (existing.status === 'ocupada') {
@@ -102,6 +129,12 @@ export class TableService {
 
     async findByRestaurantId(restaurantId: string): Promise<Table[]> {
         return this.tableRepository.findByRestaurantId(restaurantId)
+    }
+
+    private ensureValidPeople(people: unknown): void {
+        if (!isPositiveInteger(people)) {
+            throw new InvalidPeopleError()
+        }
     }
 
     private async ensureNumberIsUnique(table: Table): Promise<void> {

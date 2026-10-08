@@ -9,7 +9,9 @@ import {
     DuplicatedTableNumberError,
     RestaurantIdRequiredError,
     TableNotFoundError,
-    TableOccupiedError
+    TableOccupiedError,
+    TableNotAvailableError,
+    InvalidPeopleError
 } from '@errors/DomainErrors.js'
 
 describe('normalizeTableStatus', () => {
@@ -287,6 +289,106 @@ describe('TableService', () => {
 
             await expect(service.changeStatus('r1', 'missing', 'libre')).rejects.toThrow(TableNotFoundError)
             await expect(service.changeStatus('r2', created.id, 'libre')).rejects.toThrow(TableNotFoundError)
+        })
+    })
+
+    describe('findAvailable', () => {
+        it('should return free tables with enough capacity ordered by capacity and number', async () => {
+            await service.create({ ...validInput, number: 1, capacity: 6 })
+            await service.create({ ...validInput, number: 3, capacity: 4 })
+            await service.create({ ...validInput, number: 2, capacity: 4 })
+            await service.create({ ...validInput, number: 4, capacity: 2 })
+            await service.create({ ...validInput, number: 5, capacity: 8, status: 'ocupada' })
+
+            const result = await service.findAvailable('r1', 3)
+
+            expect(result.map(t => t.number)).toEqual([2, 3, 1])
+        })
+
+        it.each([undefined, null, 0, -1, 1.5, NaN, '3'])('should throw InvalidPeopleError for people %s', async (people) => {
+            await expect(service.findAvailable('r1', people as any)).rejects.toThrow(InvalidPeopleError)
+        })
+    })
+
+    describe('occupy', () => {
+        it('should occupy a free table with enough capacity for the user', async () => {
+            const created = await service.create(validInput)
+
+            const result = await service.occupy('r1', created.id, 3, 'client-1')
+
+            expect(result).toMatchObject({ id: created.id, status: 'ocupada', occupiedBy: 'client-1' })
+            expect(await repo.findById(created.id)).toEqual(result)
+        })
+
+        it('should throw TableNotAvailableError when the capacity is not enough', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.occupy('r1', created.id, 5, 'client-1')).rejects.toThrow(TableNotAvailableError)
+            expect((await repo.findById(created.id))?.status).toBe('libre')
+        })
+
+        it('should throw TableNotAvailableError when another user already occupies the table', async () => {
+            const created = await service.create(validInput)
+            await service.occupy('r1', created.id, 2, 'client-1')
+
+            await expect(service.occupy('r1', created.id, 2, 'client-2')).rejects.toThrow(TableNotAvailableError)
+        })
+
+        it('should throw TableNotAvailableError for a reserved table', async () => {
+            const created = await service.create({ ...validInput, status: 'reservada' })
+
+            await expect(service.occupy('r1', created.id, 2, 'client-1')).rejects.toThrow(TableNotAvailableError)
+        })
+
+        it('should be idempotent for the user that already occupies the table', async () => {
+            const created = await service.create(validInput)
+            const first = await service.occupy('r1', created.id, 2, 'client-1')
+
+            const second = await service.occupy('r1', created.id, 2, 'client-1')
+
+            expect(second).toEqual(first)
+        })
+
+        it('should throw TableNotAvailableError when the conditional update loses the race', async () => {
+            const created = await service.create(validInput)
+            repo.occupyIfFree = async () => false
+
+            await expect(service.occupy('r1', created.id, 2, 'client-1')).rejects.toThrow(TableNotAvailableError)
+        })
+
+        it('should free the previous table of the user in the same restaurant', async () => {
+            const previous = await service.create(validInput)
+            const next = await service.create({ ...validInput, number: 6 })
+            await service.occupy('r1', previous.id, 2, 'client-1')
+
+            await service.occupy('r1', next.id, 2, 'client-1')
+
+            expect(await repo.findById(previous.id)).toMatchObject({ status: 'libre', occupiedBy: null })
+        })
+
+        it('should keep the previous table when the new one is not available', async () => {
+            const previous = await service.create(validInput)
+            const busy = await service.create({ ...validInput, number: 6 })
+            await service.occupy('r1', busy.id, 2, 'client-2')
+            await service.occupy('r1', previous.id, 2, 'client-1')
+
+            await expect(service.occupy('r1', busy.id, 2, 'client-1')).rejects.toThrow(TableNotAvailableError)
+
+            expect(await repo.findById(previous.id)).toMatchObject({ status: 'ocupada', occupiedBy: 'client-1' })
+        })
+
+        it('should throw InvalidPeopleError for invalid people', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.occupy('r1', created.id, 0, 'client-1')).rejects.toThrow(InvalidPeopleError)
+            await expect(service.occupy('r1', created.id, '2' as any, 'client-1')).rejects.toThrow(InvalidPeopleError)
+        })
+
+        it('should throw TableNotFoundError for a non-existent table or another restaurant', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.occupy('r1', 'missing', 2, 'client-1')).rejects.toThrow(TableNotFoundError)
+            await expect(service.occupy('r2', created.id, 2, 'client-1')).rejects.toThrow(TableNotFoundError)
         })
     })
 })
