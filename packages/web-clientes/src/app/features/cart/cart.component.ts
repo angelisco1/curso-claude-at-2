@@ -1,8 +1,12 @@
-import { Component, inject, signal } from '@angular/core'
+import { Component, computed, inject, signal } from '@angular/core'
+import { HttpErrorResponse } from '@angular/common/http'
 import { Router, RouterLink } from '@angular/router'
 import { DecimalPipe } from '@angular/common'
 import { CartStore } from '../../core/store/cart.store'
+import { TableSelectionStore } from '../../core/store/table-selection.store'
 import { OrderService } from '../../core/services/order.service'
+
+const TABLE_ERRORS = ['TableNotFoundError', 'TableNotAvailableError']
 
 @Component({
   selector: 'app-cart',
@@ -53,8 +57,20 @@ import { OrderService } from '../../core/services/order.service'
               <span>Total</span>
               <strong>{{ cartStore.total() | number:'1.2-2' }} €</strong>
             </div>
+            @if (!table()) {
+              <div class="table-warning">
+                <p>
+                  @if (tableLost()) {
+                    Tu mesa ya no está disponible. Elige otra mesa para continuar.
+                  } @else {
+                    Elige una mesa antes de confirmar el pedido.
+                  }
+                </p>
+                <a [routerLink]="['/restaurants', cartStore.restaurantId(), 'table']" class="btn btn-secondary btn-sm">Elegir mesa</a>
+              </div>
+            }
             <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 16px;" 
-                    [disabled]="loading()" (click)="confirmOrder()">
+                    [disabled]="loading() || !table()" (click)="confirmOrder()">
               @if (loading()) {
                 Confirmando...
               } @else if (error()) {
@@ -160,6 +176,15 @@ import { OrderService } from '../../core/services/order.service'
       font-size: 18px;
       color: var(--text-primary);
     }
+    .table-warning {
+      margin-top: 16px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: center;
+    }
+    .table-warning p {
+      margin-bottom: 8px;
+    }
     .error-msg {
       color: var(--red);
       text-align: center;
@@ -170,11 +195,18 @@ import { OrderService } from '../../core/services/order.service'
 })
 export class CartComponent {
   readonly cartStore = inject(CartStore)
+  private readonly tableSelectionStore = inject(TableSelectionStore)
   private readonly orderService = inject(OrderService)
   private readonly router = inject(Router)
 
   readonly loading = signal(false)
   readonly error = signal<string | null>(null)
+  readonly tableLost = signal(false)
+
+  readonly table = computed(() => {
+    const restaurantId = this.cartStore.restaurantId()
+    return restaurantId ? this.tableSelectionStore.tableFor(restaurantId) : null
+  })
 
   increment(dishId: string): void {
     const item = this.cartStore.items().find(i => i.dish.id === dishId)
@@ -198,6 +230,9 @@ export class CartComponent {
     const restaurantId = this.cartStore.restaurantId()
     if (!restaurantId || this.cartStore.items().length === 0) return
 
+    const table = this.table()
+    if (!table) return
+
     this.loading.set(true)
     this.error.set(null)
 
@@ -207,13 +242,18 @@ export class CartComponent {
       notes: item.notes || null
     }))
 
-    this.orderService.createOrder(restaurantId, items).subscribe({
+    this.orderService.createOrder(restaurantId, table.id, items).subscribe({
       next: (order) => {
         this.cartStore.clear()
         this.router.navigate(['/orders', order.id])
       },
-      error: (err) => {
-        this.error.set('Error al confirmar el pedido. Inténtalo de nuevo.')
+      error: (err: HttpErrorResponse) => {
+        if (TABLE_ERRORS.includes(err.error?.error)) {
+          this.tableSelectionStore.clear()
+          this.tableLost.set(true)
+        } else {
+          this.error.set('Error al confirmar el pedido. Inténtalo de nuevo.')
+        }
         this.loading.set(false)
       }
     })

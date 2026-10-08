@@ -12,6 +12,8 @@ erDiagram
     restaurants ||--o{ ingredients : "tiene"
     restaurants ||--o{ dishes : "tiene"
     restaurants ||--o{ orders : "tiene"
+    restaurants ||--o{ restaurant_tables : "tiene"
+    restaurant_tables |o--o{ orders : "recibe"
     dishes ||--o{ dish_ingredients : "contiene"
     ingredients ||--o{ dish_ingredients : "usado en"
     orders ||--o{ order_items : "contiene"
@@ -66,6 +68,18 @@ erDiagram
         TEXT dish_id PK_FK
         TEXT ingredient_id PK_FK
         REAL quantity
+    }
+
+    restaurant_tables {
+        TEXT id PK
+        TEXT restaurant_id FK
+        INTEGER number
+        TEXT description
+        INTEGER capacity
+        TEXT status
+        TEXT occupied_by
+        TEXT created_at
+        TEXT updated_at
     }
 
     orders {
@@ -182,6 +196,35 @@ Relación muchos-a-muchos entre platos e ingredientes.
 
 ---
 
+### `restaurant_tables`
+
+Mesas de cada restaurante. Se llama `restaurant_tables` porque `TABLE` es palabra reservada en SQL.
+
+| Columna | Tipo | Nullable | Descripción |
+| --- | --- | --- | --- |
+| `id` | TEXT | No | UUID, clave primaria |
+| `restaurant_id` | TEXT | No | FK → `restaurants.id` |
+| `number` | INTEGER | No | Número de mesa (entero positivo) |
+| `description` | TEXT | Sí | Descripción libre (ej: "Terraza") |
+| `capacity` | INTEGER | No | Número de plazas (entero positivo) |
+| `status` | TEXT | No | Estado: libre, ocupada, reservada (default: libre) |
+| `occupied_by` | TEXT | Sí | ID del usuario que ocupó la mesa con `POST /occupy`. Uso interno: no se expone en la API |
+| `created_at` | TEXT | No | Fecha de creación |
+| `updated_at` | TEXT | No | Fecha de última actualización |
+
+**Restricciones:**
+
+- UNIQUE (`restaurant_id`, `number`): no puede haber dos mesas con el mismo número en un restaurante.
+- `restaurant_id` es FK a `restaurants.id`.
+
+**Reglas:**
+
+- Ocupar una mesa es un `UPDATE` condicional (`WHERE id = ? AND status = 'libre'`), de modo que si dos clientes la piden a la vez solo uno lo consigue.
+- Un usuario ocupa como máximo una mesa por restaurante: al ocupar otra, la misma sentencia libera la anterior (`status = 'libre'`, `occupied_by = NULL`). Si la nueva no está libre, no cambia nada.
+- `occupied_by` se limpia cuando la mesa pasa a un estado distinto de `ocupada`.
+
+---
+
 ### `orders`
 
 Pedidos de los clientes.
@@ -190,7 +233,7 @@ Pedidos de los clientes.
 | --- | --- | --- | --- |
 | `id` | TEXT | No | UUID, clave primaria |
 | `restaurant_id` | TEXT | No | FK → `restaurants.id` |
-| `table_id` | TEXT | Sí | Identificador de mesa (opcional) |
+| `table_id` | TEXT | Sí | ID de la mesa (`restaurant_tables.id`), opcional. Sin FK; `POST /orders` valida que sea una mesa `ocupada` del mismo restaurante |
 | `client_id` | TEXT | Sí | ID del cliente (opcional) |
 | `created_at` | TEXT | No | Fecha de creación |
 
@@ -223,6 +266,8 @@ Líneas de pedido. Cada ítem es un plato con cantidad y estado.
 | Restaurant → Ingredients | 1:N | Un restaurante tiene muchos ingredientes |
 | Restaurant → Dishes | 1:N | Un restaurante tiene muchos platos |
 | Restaurant → Orders | 1:N | Un restaurante tiene muchos pedidos |
+| Restaurant → Tables | 1:N | Un restaurante tiene muchas mesas (`restaurant_tables`) |
+| Table → Orders | 1:N | Una mesa puede tener varios pedidos (`orders.table_id`, opcional) |
 | Dish ↔ Ingredient | N:M | Un plato usa varios ingredientes (via `dish_ingredients`) |
 | Order → OrderItems | 1:N | Un pedido tiene varios ítems |
 | Dish → OrderItems | 1:N | Un plato puede estar en varios ítems de pedido |
