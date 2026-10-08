@@ -248,4 +248,45 @@ describe('TableService', () => {
             expect(await repo.findById(created.id)).not.toBeNull()
         })
     })
+
+    describe('changeStatus', () => {
+        it('should change and normalize the status keeping the rest of the data', async () => {
+            const created = await service.create(validInput)
+
+            const updated = await service.changeStatus('r1', created.id, 'RESERVADA')
+
+            expect(updated).toMatchObject({
+                id: created.id,
+                number: 5,
+                description: 'Terraza',
+                capacity: 4,
+                status: 'reservada',
+                createdAt: created.createdAt
+            })
+            expect((await repo.findById(created.id))?.status).toBe('reservada')
+        })
+
+        it('should free an occupied table clearing its occupant', async () => {
+            const created = await service.create(validInput)
+            await repo.occupyIfFree(created.id, 'client-1', created.updatedAt)
+
+            const updated = await service.changeStatus('r1', created.id, 'libre')
+
+            expect(updated.status).toBe('libre')
+            expect(updated.occupiedBy).toBeNull()
+        })
+
+        it('should throw InvalidTableStatusError for an invalid status', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.changeStatus('r1', created.id, 'rota')).rejects.toThrow(InvalidTableStatusError)
+        })
+
+        it('should throw TableNotFoundError for a non-existent table or another restaurant', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.changeStatus('r1', 'missing', 'libre')).rejects.toThrow(TableNotFoundError)
+            await expect(service.changeStatus('r2', created.id, 'libre')).rejects.toThrow(TableNotFoundError)
+        })
+    })
 })
