@@ -162,3 +162,8 @@ export class OrderNotFoundError extends AppError {
   }
 }
 
+export class InvalidTableStatusError extends AppError {
+  constructor(message?: string) {
+    super(message ?? 'Invalid table status')
+  }
+}
