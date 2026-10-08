@@ -1,0 +1,87 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.table-header {
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.table-number {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.table-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.table-description {
+  color: var(--text-primary);
+}
+
+.table-capacity {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.status-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 20px;
+}
+
+.badge-libre {
+  background: var(--green-glow);
+  color: var(--green-light);
+}
+
+.badge-ocupada {
+  background: var(--red-glow);
+  color: var(--red);
+}
+
+.badge-reservada {
+  background: var(--yellow-glow);
+  color: var(--yellow);
+}
