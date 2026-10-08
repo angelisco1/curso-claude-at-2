@@ -51,6 +51,18 @@ Di qué patrón del repositorio hay que seguir y nombra el precedente: "igual qu
 
 Tipos, esquemas, columnas, payloads y migraciones nuevos o modificados.
 
+### Contrato API ⇄ webs
+
+Solo si la issue toca la api y alguna web. Durante la implementación, el agente `api` lo pasa a `docs/plans/<numero>-contrato-api-<descripcion>.md` y es su único propietario.
+
+| Método y ruta | Roles | Body / query | Respuesta OK |
+|---|---|---|---|
+| | | | |
+
+| Error (`error`) | `message` | HTTP |
+|---|---|---|
+| | | |
+
 ## 5. Casos borde y errores
 
 | Situación | Comportamiento esperado |
@@ -61,19 +73,30 @@ Rellena con las situaciones reales de esta issue. Borra las que no apliquen.
 
 ## 6. Plan de implementación
 
-Pasos en orden. Cada paso debe poder revisarse por separado.
+Tareas agrupadas por área y en orden. Cada tarea cabe en 5-10 minutos, tiene su test y se puede revisar por separado. Borra las áreas que no apliquen.
 
-1. [ ] Paso — archivos implicados
-2. [ ] Paso — archivos implicados
-3. [ ] Tests
-4. [ ] Documentación / changelog
+### 6.1 api (`packages/api`) — tests con `npm test -w @resttek/api`
+
+1. [ ] Tarea — test que la cubre — archivos implicados
+
+### 6.2 web-admin (`packages/web-admin`) — tests con `npx ng test` desde el paquete
+
+1. [ ] Tarea — test que la cubre — archivos implicados
+
+### 6.3 web-clientes (`packages/web-clientes`) — tests con `npx ng test` desde el paquete
+
+1. [ ] Tarea — test que la cubre — archivos implicados
+
+### 6.4 web-empleados (`packages/web-empleados`) — tests con `npx ng test` desde el paquete
+
+1. [ ] Tarea — test que la cubre — archivos implicados
 
 ## 7. Criterios de aceptación
 
 Condiciones que cierran la issue. Cada una debe poder comprobarse sin discusión.
 
 - [ ] …
-- [ ] …
+- [ ] Los tests de todas las áreas pasan y `npx ng build` compila en las tres webs.
 
 ### Tests
 

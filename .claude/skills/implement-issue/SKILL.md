@@ -48,8 +48,9 @@ Agrupa las tareas por **área** del monorepo según los ficheros que tocan:
 Comprueba los scripts reales de cada `package.json` antes de dar por buenos estos comandos.
 
 - **Un solo agente** (tú mismo): si todas las tareas pertenecen a una misma área, o si el plan es pequeño y muy secuencial.
-- **Varios agentes**: si hay tareas de **dos o más áreas** que pueden avanzar de forma independiente. Habrá un agente por área.
-  - Si un área depende de otra (por ejemplo, la web consume un endpoint nuevo de la api), las tareas que fijan el contrato (tipos en `web-shared`, forma de la respuesta) van primero. O bien se implementan antes de lanzar al resto, o bien el agente dependiente trabaja contra el contrato descrito en el plan.
+- **Varios agentes**: si hay tareas de **dos o más áreas** que pueden avanzar de forma independiente. Habrá un agente por área: `api-developer` para la api y `web-developer` para cada web (ver 4.2).
+  - Si la api y alguna web se comunican (endpoints nuevos o modificados), hay **contrato**: el fichero `docs/plans/<numero>-contrato-api-<descripcion>.md`. Su propietario es el agente `api`; las webs trabajan contra él y piden cambios por mensaje (ver 4.2). Si el plan ya trae la sección "Contrato API ⇄ webs", úsala como punto de partida.
+  - Las tareas de `web-shared` (tipos, componentes compartidos) van primero: o las haces tú antes de lanzar a los agentes o se las asignas a un agente antes que al resto.
   - Las tareas transversales que tocan varias áreas a la vez las haces tú (orquestador) en el worktree principal, antes o después de los agentes según el orden del plan.
 
 Muestra al usuario el reparto (área → tareas → agente) y el nombre de las ramas y worktrees que vas a crear, y espera su confirmación.
@@ -123,10 +124,16 @@ Por cada área con agente propio:
 
    Resultado: worktree en `.claude/worktrees/issue-<numero>-<area>` y rama `<tipo>/<numero>-<descripcion>--<area>`.
 2. Ejecuta `npm install` en ese worktree.
-3. Lanza un subagente (`Agent`, tipo `general-purpose`) por área, **todos en el mismo mensaje** para que trabajen en paralelo. Construye su prompt con `assets/AGENT_PROMPT.md`, rellenando ruta absoluta del worktree, rama, área, número de issue, tareas asignadas (texto literal del plan), criterios de aceptación relevantes, contrato con otras áreas y comando de tests.
+3. Lanza un subagente por área, **todos en el mismo mensaje** para que trabajen en paralelo:
+   - api: `subagent_type: api-developer`, `name: api`.
+   - Cada web: `subagent_type: web-developer`, `name: <area>` (por ejemplo `web-clientes`).
+   - El `name` es obligatorio: los agentes se escriben entre ellos por `SendMessage` usando esos nombres para acordar el contrato.
+   - El prompt se construye con `assets/AGENT_PROMPT.md`. Las reglas de trabajo (TDD, commits, contrato) ya están en la definición de cada agente en `.claude/agents/`; el prompt solo lleva los datos de esta issue.
    - No uses `isolation: "worktree"` en la llamada: el worktree ya lo has creado tú desde la rama de la feature.
-   - Cada agente trabaja **solo** en su worktree y **solo** en los ficheros de su área.
-4. Espera a que terminen todos. Cada agente debe devolver: commits creados (hash + mensaje), tareas completadas, resultado de la suite y bloqueos.
+   - Cada agente trabaja **solo** en su worktree y **solo** en los ficheros de su área. El agente `api` es el único que edita el contrato.
+4. Mientras trabajan, si un agente te consulta algo que contradice el plan o la issue, pregunta al usuario; no lo decidas tú.
+5. Espera a que terminen todos. Cada agente debe devolver: commits creados (hash + mensaje), tareas completadas, resultado de la suite, versión del contrato y bloqueos.
+6. Si el contrato cambió después de que alguna web terminara (por ejemplo, de `v2` a `v3`), relanza o continúa (`SendMessage`) a esa web para que se adapte antes de integrar.
 
 ### 4.3 Integración (orquestador)
 
@@ -140,7 +147,7 @@ Por cada área con agente propio:
 
    - Si hay conflictos, resuélvelos respetando el plan; si no está claro cómo, pregunta al usuario.
 3. Tras cada merge, ejecuta la suite completa de todas las áreas afectadas. Si algo falla, arréglalo con el mismo ciclo TDD y su propio commit.
-4. Marca en el plan las tareas integradas y haz commit: `docs(plans): mark <area> tasks as done for #<numero>`.
+4. Marca en el plan las tareas integradas y haz commit: `docs(plans): mark <area> tasks as done for #<numero>`. Si hay contrato, comprueba que lo que se ha integrado es su última versión `ACORDADO`; si no, commitéala tú en este paso.
 5. Cuando todo esté integrado y en verde, elimina los worktrees de los agentes (`git worktree remove .claude/worktrees/issue-<numero>-<area>`). Conserva sus ramas hasta que el usuario decida.
 
 ## 5. Cierre
@@ -151,7 +158,7 @@ Por cada área con agente propio:
    - Ruta del worktree y nombre de la rama de la feature.
    - Lista de commits (`git log --oneline <base>..HEAD`).
    - Tareas completadas y pendientes, y resultado de los tests.
-4. **No** hagas `git push`, no abras PR, no comentes en la issue ni la cierres sin que el usuario lo pida. Ofrécele hacerlo:
-   - Push y PR: `git push -u origin <rama>` y `gh pr create --draft` con `Closes #<numero>` en la descripción.
+4. **No** hagas `git push`, no abras PR, no comentes en la issue ni la cierres sin que el usuario lo pida. Ofrécele:
    - Comentario de progreso en la issue con el plan actualizado: `gh issue comment <numero> --body-file docs/plans/<fichero>.md`.
-5. No elimines el worktree principal: indícale al usuario cómo hacerlo cuando ya no lo necesite (`git worktree remove .claude/worktrees/issue-<numero>`).
+   - Terminar la PR con la skill `finish-issue`: comprueba que no falte nada por mergear, ejecuta tests y builds de todas las áreas, verifica los criterios de aceptación, sube la rama y crea o prepara la PR.
+5. No elimines el worktree principal ni las ramas de área: los necesita `finish-issue`.
