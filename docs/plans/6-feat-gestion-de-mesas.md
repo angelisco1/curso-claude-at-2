@@ -263,14 +263,16 @@ Cada tarea se implementa con TDD (test en rojo → código → verde) y deja el 
 
 ### 6.3 web-clientes (`packages/web-clientes`) — tests con `npx ng test` desde el paquete
 
-1. [ ] Configurar el target `test` con Vitest (igual que 6.2.1) — test: `app.spec.ts` mínimo.
-2. [ ] Crear `core/models/table.model.ts` y `core/services/table.service.ts` (`getAvailable(restaurantId, people)`, `occupy(restaurantId, tableId, people)`) — test: `table.service.spec.ts` con `HttpTestingController` (query `people` y body `{ people }`).
-3. [ ] Crear `core/store/table-selection.store.ts` (`selected` signal con `{ restaurantId, table }`, `select`, `clear`, `tableFor(restaurantId)`; persistencia en `sessionStorage`) — test: `table-selection.store.spec.ts` (guarda, recupera tras recrear el store, devuelve `null` para otro restaurante).
-4. [ ] Crear `features/tables/table-selection.component.ts` con el campo de número de personas, botón **Buscar mesas**, lista de mesas disponibles seleccionables y mensaje *"No hay mesas disponibles para N personas."*; añadir la ruta `restaurants/:id/table` — test: `table-selection.component.spec.ts` (busca con el número indicado, pinta las mesas, **Continuar** deshabilitado sin selección).
-5. [ ] Al pulsar **Continuar**: llamar a `occupy`, guardar en `TableSelectionStore` y navegar a `/restaurants/:id`; si responde 409, mostrar *"Esa mesa ya no está disponible. Elige otra."* y recargar la lista — test: `table-selection.component.spec.ts`.
-6. [ ] Crear `core/guards/table-selected.guard.ts` (si no hay mesa para ese restaurante, redirige a `/restaurants/:id/table`), aplicarlo a `restaurants/:id` y cambiar el enlace de `restaurant-list.component.ts` a `/restaurants/:id/table` — test: `table-selected.guard.spec.ts` (deja pasar con mesa; devuelve `UrlTree` sin mesa o con mesa de otro restaurante).
-7. [ ] Mostrar *"Mesa N"* en la cabecera de `restaurant-menu.component.ts` y un enlace **Cambiar mesa** — test: `restaurant-menu.component.spec.ts` (muestra el número de la mesa elegida).
-8. [ ] `OrderService.createOrder(restaurantId, tableId, items)` envía `tableId`, y `cart.component.ts` lo toma de `TableSelectionStore` — test: `order.service.spec.ts` (el body lleva el `tableId`).
+1. [x] Configurar el target `test` con Vitest (igual que 6.2.1) — test: `app.spec.ts` mínimo.
+2. [x] Crear `core/models/table.model.ts` y `core/services/table.service.ts` (`getAvailable(restaurantId, people)`, `occupy(restaurantId, tableId, people)`) — test: `table.service.spec.ts` con `HttpTestingController` (query `people` y body `{ people }`).
+3. [x] Crear `core/store/table-selection.store.ts` (`selected` signal con `{ restaurantId, table }`, `select`, `clear`, `tableFor(restaurantId)`; persistencia en `sessionStorage`) — test: `table-selection.store.spec.ts` (guarda, recupera tras recrear el store, devuelve `null` para otro restaurante).
+4. [x] Crear `features/tables/table-selection.component.ts` con el campo de número de personas, botón **Buscar mesas**, lista de mesas disponibles seleccionables y mensaje *"No hay mesas disponibles para N personas."*; añadir la ruta `restaurants/:id/table` — test: `table-selection.component.spec.ts` (busca con el número indicado, pinta las mesas, **Continuar** deshabilitado sin selección).
+5. [x] Al pulsar **Continuar**: llamar a `occupy`, guardar en `TableSelectionStore` y navegar a `/restaurants/:id`; si responde 409, mostrar *"Esa mesa ya no está disponible. Elige otra."* y recargar la lista — test: `table-selection.component.spec.ts`.
+6. [x] Crear `core/guards/table-selected.guard.ts` (si no hay mesa para ese restaurante, redirige a `/restaurants/:id/table`), aplicarlo a `restaurants/:id` y cambiar el enlace de `restaurant-list.component.ts` a `/restaurants/:id/table` — test: `table-selected.guard.spec.ts` (deja pasar con mesa; devuelve `UrlTree` sin mesa o con mesa de otro restaurante).
+7. [x] Mostrar *"Mesa N"* en la cabecera de `restaurant-menu.component.ts` y un enlace **Cambiar mesa** — test: `restaurant-menu.component.spec.ts` (muestra el número de la mesa elegida).
+8. [x] `OrderService.createOrder(restaurantId, tableId, items)` envía `tableId`, y `cart.component.ts` lo toma de `TableSelectionStore` — test: `order.service.spec.ts` (el body lleva el `tableId`).
+
+9. [x] (Decisión de equipo D2) Si `POST /orders` responde `TableNotFoundError` / `TableNotAvailableError`, se borra la mesa guardada, se conserva el carrito y se pide elegir otra mesa.
 
 ### 6.4 web-empleados (`packages/web-empleados`) — tests con `npx ng test` desde el paquete
 
@@ -281,6 +283,8 @@ Cada tarea se implementa con TDD (test en rojo → código → verde) y deja el 
 5. [x] Crear `pages/mesas` con una tarjeta por mesa (número, descripción, capacidad, badge de estado y `<select>` para cambiarlo); ruta `mesas` en `app.routes.ts` — test: `mesas.component.spec.ts` (pinta las mesas y al cambiar el select llama a `tableStore.changeStatus`).
 6. [x] En las tarjetas de mesas ocupadas, listar los platos de sus pedidos activos con su estado usando `OrderStore` + `groupOrdersByTable`, o *"Sin pedidos activos"* — test: `mesas.component.spec.ts`.
 7. [x] Añadir `canSeeMesas` (manager, camarero, cocinero) y el enlace **Mesas** (icono `armchair`/`layout-grid`) en `shell.component` — verificación: `npx ng build` y navegación manual.
+
+> Contrato API ⇄ webs acordado por el equipo de agentes: [`6-contrato-api-mesas.md`](6-contrato-api-mesas.md) (ACORDADO v3).
 
 ## 7. Criterios de aceptación
 
