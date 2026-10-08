@@ -12,7 +12,9 @@ export class Database {
 
     constructor() {
         const env = process.env.NODE_ENV || 'development'
-        if (env === 'test') {
+        if (process.env.DB_PATH) {
+            this.dbPath = process.env.DB_PATH
+        } else if (env === 'test') {
             this.dbPath = ':memory:'
         } else {
             this.dbPath = path.join(__dirname, '../../resttek.db')
