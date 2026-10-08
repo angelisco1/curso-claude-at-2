@@ -8,7 +8,8 @@ import {
     InvalidCapacityError,
     DuplicatedTableNumberError,
     RestaurantIdRequiredError,
-    TableNotFoundError
+    TableNotFoundError,
+    TableOccupiedError
 } from '@errors/DomainErrors.js'
 
 describe('normalizeTableStatus', () => {
@@ -212,6 +213,39 @@ describe('TableService', () => {
             const updated = await service.update('r1', created.id, { ...updateInput, status: 'ocupada' })
 
             expect(updated.occupiedBy).toBe('client-1')
+        })
+    })
+
+    describe('delete', () => {
+        it('should delete an existing table', async () => {
+            const created = await service.create(validInput)
+
+            await service.delete('r1', created.id)
+
+            expect(await repo.findById(created.id)).toBeNull()
+        })
+
+        it('should delete a reserved table', async () => {
+            const created = await service.create({ ...validInput, status: 'reservada' })
+
+            await service.delete('r1', created.id)
+
+            expect(await repo.findById(created.id)).toBeNull()
+        })
+
+        it('should throw TableNotFoundError for a non-existent table or another restaurant', async () => {
+            const created = await service.create(validInput)
+
+            await expect(service.delete('r1', 'missing')).rejects.toThrow(TableNotFoundError)
+            await expect(service.delete('r2', created.id)).rejects.toThrow(TableNotFoundError)
+            expect(await repo.findById(created.id)).not.toBeNull()
+        })
+
+        it('should throw TableOccupiedError for an occupied table', async () => {
+            const created = await service.create({ ...validInput, status: 'ocupada' })
+
+            await expect(service.delete('r1', created.id)).rejects.toThrow(TableOccupiedError)
+            expect(await repo.findById(created.id)).not.toBeNull()
         })
     })
 })

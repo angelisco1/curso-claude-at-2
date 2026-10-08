@@ -7,7 +7,8 @@ import {
     InvalidTableNumberError,
     InvalidCapacityError,
     DuplicatedTableNumberError,
-    TableNotFoundError
+    TableNotFoundError,
+    TableOccupiedError
 } from '@errors/DomainErrors.js'
 
 export interface CreateTableDTO {
@@ -68,6 +69,14 @@ export class TableService {
         await this.ensureNumberIsUnique(updated)
         await this.tableRepository.save(updated)
         return updated
+    }
+
+    async delete(restaurantId: string, id: string): Promise<void> {
+        const existing = await this.getById(restaurantId, id)
+        if (existing.status === 'ocupada') {
+            throw new TableOccupiedError()
+        }
+        await this.tableRepository.delete(id)
     }
 
     async getById(restaurantId: string, id: string): Promise<Table> {
