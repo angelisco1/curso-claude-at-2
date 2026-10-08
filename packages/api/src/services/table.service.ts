@@ -95,11 +95,11 @@ export class TableService {
         this.ensureValidPeople(people)
         const table = await this.getById(restaurantId, id)
 
-        if (table.status === 'ocupada' && table.occupiedBy === userId) {
-            return table
-        }
         if (table.capacity < people) {
             throw new TableNotAvailableError()
+        }
+        if (table.status === 'ocupada' && table.occupiedBy === userId) {
+            return table
         }
 
         const updatedAt = new Date().toISOString()

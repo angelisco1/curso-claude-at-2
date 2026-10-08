@@ -349,6 +349,14 @@ describe('TableService', () => {
             expect(second).toEqual(first)
         })
 
+        it('should throw TableNotAvailableError when the occupant retries with more people than the capacity', async () => {
+            const created = await service.create(validInput)
+            await service.occupy('r1', created.id, 2, 'client-1')
+
+            await expect(service.occupy('r1', created.id, 5, 'client-1')).rejects.toThrow(TableNotAvailableError)
+            expect(await repo.findById(created.id)).toMatchObject({ status: 'ocupada', occupiedBy: 'client-1' })
+        })
+
         it('should throw TableNotAvailableError when the conditional update loses the race', async () => {
             const created = await service.create(validInput)
             repo.occupyIfFree = async () => false
