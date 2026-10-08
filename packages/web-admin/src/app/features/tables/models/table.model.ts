@@ -24,3 +24,9 @@ export interface UpdateTableDto {
   capacity: number
   status: TableStatus
 }
+
+export const TABLE_STATUS_LABELS: Record<TableStatus, string> = {
+  libre: 'Libre',
+  ocupada: 'Ocupada',
+  reservada: 'Reservada'
+}
