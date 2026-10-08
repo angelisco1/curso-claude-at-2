@@ -51,7 +51,7 @@ contexts/employee/
 
 `contexts/shared/` no es un bounded context de negocio: contiene el value object `Email` y los middlewares y el `errorHandler` de Express.
 
-### 2. Por capas → `restaurant`, `dish`, `ingredient`, `order`
+### 2. Por capas → `restaurant`, `dish`, `ingredient`, `order`, `table`
 
 El resto de dominios **no** usan bounded contexts. Se organizan en carpetas transversales por tipo de fichero:
 
@@ -122,6 +122,7 @@ Los demás conceptos que podrían ser Value Objects **no están implementados co
 | Unidad de ingrediente | `normalizeIngredientUnit()` en `models/ingredient.model.ts` | kg, g, l, ml, unidad |
 | Categoría de plato | `normalizeDishCategory()` en `models/dish.model.ts` | entrante, principal, postre, bebida |
 | Estado de pedido | `normalizeOrderStatus()` en `models/order.model.ts` | pendiente, preparando, listo, entregado |
+| Estado de mesa | `normalizeTableStatus()` en `models/table.model.ts` | libre, ocupada, reservada |
 | Teléfono | `PHONE_REGEX` dentro de `services/restaurant.service.ts` | `/^\+?[\d\s\-()]{7,20}$/` |
 
 Las funciones `normalizeX()` hacen `trim()` + `toLowerCase()` y lanzan el error de dominio correspondiente si el valor no es válido.
@@ -310,11 +311,33 @@ Todos cuelgan de `/api/v1`. La columna **Roles** indica qué valores de `req.use
 
 Los ingredientes son **más restrictivos** que los platos: solo `admin` puede crear, editar o borrar.
 
+### Mesas
+
+| Método | Ruta | Roles | Body / query | Respuesta |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api/v1/restaurants/:restaurantId/tables` | admin, manager, camarero, cocinero | — | `200 Table[]` ordenadas por `number` |
+| `GET` | `/api/v1/restaurants/:restaurantId/tables/available` | autenticado | `?people=N` | `200 Table[]` libres con `capacity >= N`, por `capacity` y `number` |
+| `GET` | `/api/v1/restaurants/:restaurantId/tables/:id` | admin, manager, camarero, cocinero | — | `200 Table` |
+| `POST` | `/api/v1/restaurants/:restaurantId/tables` | admin | `{ number, description?, capacity, status? }` | `201 Table` (`status` por defecto `libre`) |
+| `PUT` | `/api/v1/restaurants/:restaurantId/tables/:id` | admin | `{ number, description?, capacity, status }` | `200 Table` |
+| `DELETE` | `/api/v1/restaurants/:restaurantId/tables/:id` | admin | — | `204` sin cuerpo |
+| `PATCH` | `/api/v1/restaurants/:restaurantId/tables/:id/status` | admin, manager, camarero, cocinero | `{ status }` | `200 Table` |
+| `POST` | `/api/v1/restaurants/:restaurantId/tables/:id/occupy` | autenticado | `{ people }` | `200 Table` en estado `ocupada` |
+
+`Table` es `{ id, restaurantId, number, description, capacity, status, createdAt, updatedAt }`; la columna `occupied_by` no se expone.
+
+- `GET /available` se declara antes que `GET /:id` para que Express no trate `available` como un id.
+- `number`, `capacity` y `people` deben ser enteros positivos (en el body, números JSON; en `?people=` se convierte el texto a número).
+- Una mesa de otro restaurante se trata como inexistente (404).
+- `POST /:id/occupy` usa el `id` del JWT como ocupante. Es idempotente para quien ya ocupa la mesa (200) y responde 409 si la mesa está ocupada por otro, reservada o no tiene plazas suficientes. Ocupar una mesa libera la que el mismo usuario tuviera en ese restaurante.
+- `DELETE` de una mesa `ocupada` responde 409 (`TableOccupiedError`).
+- Además de `authorize()`, estas rutas aplican `authorizeOwnRestaurant`: un `manager`, `camarero` o `cocinero` solo accede a las mesas del restaurante de su JWT. Platos e ingredientes no tienen esta restricción.
+
 ### Pedidos
 
 | Método | Ruta | Roles |
 | --- | --- | --- |
-| `POST` | `/api/v1/orders` | autenticado — el `clientId` se toma del JWT, no del body |
+| `POST` | `/api/v1/orders` | autenticado — el `clientId` se toma del JWT, no del body; si llega `tableId`, la mesa debe existir en ese restaurante (404) y estar `ocupada` (409) |
 | `GET` | `/api/v1/orders/active` | autenticado — **requiere `?restaurantId=`** (400 si falta) |
 | `GET` | `/api/v1/orders/mine` | autenticado — pedidos del usuario del JWT |
 | `GET` | `/api/v1/orders/:id` | autenticado |
@@ -336,8 +359,9 @@ Definidos en `contexts/shared/infrastructure/http/middlewares.ts`.
 | --- | --- | --- |
 | `authenticate` | Verifica el JWT de `Authorization: Bearer <token>` y vuelca el payload en `req.user` | 401 |
 | `authorize(roles)` | Comprueba que `req.user.role` está en la lista | 403 |
+| `authorizeOwnRestaurant` | Para `manager`, `camarero` y `cocinero`, exige que `req.user.restaurantId` coincida con `:restaurantId` (solo en rutas de mesas) | 403 `{ error: "Forbidden: Restaurant mismatch" }` |
 
-Ambos responden directamente, sin pasar por el `errorHandler`.
+Todos responden directamente, sin pasar por el `errorHandler`.
 
 ---
 
@@ -345,7 +369,8 @@ Ambos responden directamente, sin pasar por el `errorHandler`.
 
 Jerarquía: `Error` → `AppError` (abstracta) → errores específicos en `errors/DomainErrors.ts`. `AppError` asigna `this.name = this.constructor.name`, y el `errorHandler` decide el código HTTP a partir de ese nombre:
 
-- **404**: `EmployeeNotFoundError`, `RestaurantNotFoundError`, `IngredientNotFoundError`, `DishNotFoundError`
+- **404**: `EmployeeNotFoundError`, `RestaurantNotFoundError`, `IngredientNotFoundError`, `DishNotFoundError`, `TableNotFoundError`
+- **409**: `DuplicatedTableNumberError`, `TableNotAvailableError`, `TableOccupiedError`
 - **401**: `InvalidCredentialsError`
 - **400**: cualquier otro `AppError`
 - **500**: errores no controlados
@@ -353,7 +378,7 @@ Jerarquía: `Error` → `AppError` (abstracta) → errores específicos en `erro
 Dos excepciones que conviene conocer:
 
 - `OrderNotFoundError` **no** está en la lista de 404. Si llegase al `errorHandler` se traduciría a 400.
-- `OrderController` no delega en el `errorHandler`: es el único controlador que **no llama a `next(error)`**, sino que hace su propio `try/catch` y construye la respuesta a mano. Por eso `GET /orders/:id` sí devuelve 404, pero el `PATCH` de estado devuelve 400 para el mismo error.
+- `OrderController` no delega en el `errorHandler`: es el único controlador que **no llama a `next(error)`**, sino que hace su propio `try/catch` y construye la respuesta a mano. Por eso `GET /orders/:id` sí devuelve 404, pero el `PATCH` de estado devuelve 400 para el mismo error. La única excepción son `TableNotFoundError` y `TableNotAvailableError` en `POST /orders`, que sí se pasan al `errorHandler` (404 y 409).
 
 ---
 
@@ -391,7 +416,7 @@ La clase `Database` (`config/database.ts`) encapsula `sqlite3` con una API basad
 
 El módulo exporta una **instancia única** (`export const dbConfig = new Database()`) que se importa allá donde hace falta. No es un singleton con `getInstance()`: nada impide construir otra `Database`, y de hecho los tests lo hacen.
 
-La ruta del fichero se decide en el constructor: `:memory:` si `NODE_ENV=test`, y `packages/api/resttek.db` en cualquier otro caso.
+La ruta del fichero se decide en el constructor: la variable `DB_PATH` si está definida; si no, `:memory:` con `NODE_ENV=test` y `packages/api/resttek.db` en cualquier otro caso. Por ejemplo, `DB_PATH=/tmp/prueba.db npm run seed -w @resttek/api` siembra una base de datos aparte.
 
 ---
 
@@ -400,6 +425,7 @@ La ruta del fichero se decide en el constructor: `:memory:` si `NODE_ENV=test`, 
 Con **Vitest** (`npm test` desde la raíz, o `npm run test:watch` dentro de `packages/api`). Los tests son unitarios y conviven con el código que prueban:
 
 - Dominio y casos de uso de `employee`, con dobles en `contexts/employee/application/mocks/`
-- Servicios y repositorios de `restaurant`, `ingredient` y `order`, con dobles en `repositories/mocks/`
+- Servicios y repositorios de `restaurant`, `ingredient`, `order` y `table`, con dobles en `repositories/mocks/`
+- `errorHandler`, con un `res` simulado
 
-**No hay tests de integración HTTP.** `supertest` figura como dependencia de desarrollo pero no se usa en ningún test, así que las rutas, los middlewares y el `errorHandler` no están cubiertos.
+Los únicos tests de integración HTTP son `routes/table.routes.test.ts` y `routes/order.routes.test.ts`: usan `supertest` contra `app` con la base de datos en memoria y firman el JWT con el mismo secreto que `middlewares.ts`. El resto de rutas no están cubiertas.

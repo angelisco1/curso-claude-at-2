@@ -9,6 +9,18 @@ const seed = async () => {
         await dbConfig.initialize()
         console.log('Database initialized.')
 
+        await dbConfig.run(`
+            INSERT OR IGNORE INTO restaurants (id, name, address, email, phone, owner_first_name, owner_last_name, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, ['rest-1', 'Restaurante El Gourmet', 'Calle Mayor 10, Madrid', 'info@gourmet.com', '912345678', 'Carlos', 'García', new Date().toISOString(), new Date().toISOString()])
+
+        await dbConfig.run(`
+            INSERT OR IGNORE INTO restaurants (id, name, address, email, phone, owner_first_name, owner_last_name, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, ['rest-2', 'Pizzería Napoli', 'Avenida del Sol 25, Barcelona', 'info@napoli.com', '934567890', 'Marco', 'Rossi', new Date().toISOString(), new Date().toISOString()])
+
+        console.log('Restaurants created.')
+
         const authService = new BcryptAuthService()
         const employeeRepo = new SqliteEmployeeRepository(dbConfig)
 
@@ -58,18 +70,6 @@ const seed = async () => {
                 console.log(`${emp.role} already exists: ${emp.email}`)
             }
         }
-
-        await dbConfig.run(`
-            INSERT OR IGNORE INTO restaurants (id, name, address, email, phone, owner_first_name, owner_last_name, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, ['rest-1', 'Restaurante El Gourmet', 'Calle Mayor 10, Madrid', 'info@gourmet.com', '912345678', 'Carlos', 'García', new Date().toISOString(), new Date().toISOString()])
-
-        await dbConfig.run(`
-            INSERT OR IGNORE INTO restaurants (id, name, address, email, phone, owner_first_name, owner_last_name, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, ['rest-2', 'Pizzería Napoli', 'Avenida del Sol 25, Barcelona', 'info@napoli.com', '934567890', 'Marco', 'Rossi', new Date().toISOString(), new Date().toISOString()])
-
-        console.log('Restaurants created.')
 
         const ingredientsRest1 = [
             { id: randomUUID(), name: 'Tomate', unit: 'kg' },
@@ -158,11 +158,46 @@ const seed = async () => {
 
         console.log('Restaurant 2 dishes created: 1 dish + 1 drink')
 
+        const sampleTables = {
+            'rest-1': [
+                { number: 1, description: 'Ventana', capacity: 2, status: 'libre' },
+                { number: 2, description: 'Ventana', capacity: 2, status: 'libre' },
+                { number: 3, description: 'Salón', capacity: 4, status: 'libre' },
+                { number: 4, description: 'Salón', capacity: 4, status: 'reservada' },
+                { number: 5, description: 'Terraza', capacity: 6, status: 'ocupada' },
+                { number: 6, description: 'Terraza', capacity: 6, status: 'libre' },
+            ],
+            'rest-2': [
+                { number: 1, description: 'Barra', capacity: 2, status: 'libre' },
+                { number: 2, description: 'Salón', capacity: 2, status: 'libre' },
+                { number: 3, description: 'Salón', capacity: 4, status: 'libre' },
+                { number: 4, description: 'Reservado', capacity: 6, status: 'libre' },
+            ],
+        }
+
+        for (const [restaurantId, tables] of Object.entries(sampleTables)) {
+            const existing = await dbConfig.get<{ total: number }>('SELECT COUNT(*) as total FROM restaurant_tables WHERE restaurant_id = ?', [restaurantId])
+            if (existing && existing.total > 0) {
+                console.log(`Tables already exist for ${restaurantId}.`)
+                continue
+            }
+
+            for (const table of tables) {
+                await dbConfig.run(`
+                    INSERT INTO restaurant_tables (id, restaurant_id, number, description, capacity, status, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `, [randomUUID(), restaurantId, table.number, table.description, table.capacity, table.status, new Date().toISOString(), new Date().toISOString()])
+            }
+            console.log(`${restaurantId} tables created: ${tables.length}`)
+        }
+
+        const sampleOrderTableId = (await dbConfig.get<{id: string}>('SELECT id FROM restaurant_tables WHERE restaurant_id = ? AND number = ?', ['rest-1', 5]))?.id ?? null
+
         const order1Id = randomUUID()
         await dbConfig.run(`
             INSERT OR IGNORE INTO orders (id, restaurant_id, table_id, client_id, created_at)
             VALUES (?, ?, ?, ?, ?)
-        `, [order1Id, 'rest-1', '5', null, new Date().toISOString()])
+        `, [order1Id, 'rest-1', sampleOrderTableId, null, new Date().toISOString()])
 
         for (let i = 0; i < 2; i++) {
             await dbConfig.run(`
