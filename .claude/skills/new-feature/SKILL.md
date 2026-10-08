@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: Recibe el número de una issue de GitHub, la lee con gh, crea una rama de trabajo a partir de development (o master si no existe), redacta un plan por tareas pequeñas en docs/plans, lo publica como comentario en la issue y lo implementa con TDD estricto. Úsala cuando se pida planificar o implementar una issue (nueva funcionalidad, corrección o refactor).
+description: Recibe el número de una issue de GitHub, la lee con gh, crea una rama de trabajo a partir de development (o master si no existe), redacta un plan por tareas pequeñas en docs/plans, lo publica como comentario en la issue. Úsala cuando se pida planificar una issue (nueva funcionalidad, corrección o refactor).
 argument-hint: <número-de-issue>
 ---
 
@@ -69,24 +69,7 @@ gh issue comment <numero> --body-file docs/plans/<numero>-<tipo>-<descripcion>.m
 - Si el comando falla (permisos, red, etc.), muestra el error al usuario y pregúntale si quiere continuar con la implementación sin publicar el plan.
 - Si más adelante el plan cambia de forma relevante, publica un nuevo comentario indicando qué ha cambiado; no edites comentarios antiguos.
 
-## 4. Implementar con TDD estricto
 
-Para **cada** tarea, en orden, sigue el ciclo completo sin saltarte ningún paso:
-
-1. **Red**: escribe primero el test que describe el comportamiento esperado. Ejecútalo y comprueba que **falla** por el motivo correcto. Si pasa sin código nuevo, el test no sirve: corrígelo.
-2. **Green**: escribe el mínimo código de producción necesario para que el test pase. Nada más.
-3. **Refactor**: limpia el código y los tests manteniendo todo en verde.
-4. Ejecuta la **suite completa** y comprueba que todo pasa.
-5. Marca la tarea en el plan (`- [ ]` → `- [x]`) **inmediatamente**, antes de empezar la siguiente.
-
-Notas:
-
-- No escribas código de producción sin un test en rojo que lo justifique.
-- No avances a la siguiente tarea si la suite no está en verde.
-- El proyecto no tiene test runner configurado. Si aún no hay tests, la primera tarea del plan debe preparar la infraestructura de tests usando el runner integrado de Node (`node --test`, módulo `node:test`), sin añadir dependencias, y añadir el script `npm test`.
-- Los tests no deben tocar la base de datos real: usa `DB_PATH` apuntando a una base temporal o `:memory:`.
-- El código y los tests se escriben en inglés; el plan, los comentarios en la issue y los mensajes al usuario, en español.
-
-## 5. Cierre
+## 4. Cierre
 
 Cuando todas las tareas estén marcadas, ejecuta la suite completa una última vez y resume al usuario qué se ha hecho. No hagas commit ni push, ni cierres la issue, salvo que el usuario lo pida (para commits está la skill `commit`). Si quiere referenciar la issue en el commit, sugiere añadir `Refs #<numero>` (o `Closes #<numero>`) en el pie del mensaje.
