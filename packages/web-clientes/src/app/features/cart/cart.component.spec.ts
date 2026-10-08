@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing'
+import { HttpErrorResponse } from '@angular/common/http'
 import { Router, provideRouter } from '@angular/router'
-import { of } from 'rxjs'
+import { of, throwError } from 'rxjs'
 import { CartComponent } from './cart.component'
 import { OrderService } from '../../core/services/order.service'
 import { CartStore, Dish } from '../../core/store/cart.store'
@@ -34,6 +35,14 @@ describe('CartComponent', () => {
   let el: HTMLElement
   let orderService: { createOrder: ReturnType<typeof vi.fn> }
 
+  const chooseTableLink = () =>
+    Array.from(el.querySelectorAll<HTMLAnchorElement>('a')).find(a => a.textContent?.trim() === 'Elegir mesa')
+
+  const failWith = (status: number, error: string) =>
+    orderService.createOrder.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status, error: { error, message: '' } }))
+    )
+
   const confirmButton = () =>
     Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(b => b.textContent?.trim() === 'Confirmar pedido')!
 
@@ -66,5 +75,39 @@ describe('CartComponent', () => {
     expect(orderService.createOrder).toHaveBeenCalledWith('rest-1', 'table-5', [
       { dishId: 'dish-1', quantity: 2, notes: null }
     ])
+  })
+
+  it.each([
+    [404, 'TableNotFoundError'],
+    [409, 'TableNotAvailableError']
+  ])('asks to choose another table when the api rejects the table (%i %s)', (status, error) => {
+    failWith(status, error)
+
+    confirmButton().click()
+    fixture.detectChanges()
+
+    expect(el.textContent).toContain('Tu mesa ya no está disponible. Elige otra mesa para continuar.')
+    expect(chooseTableLink()?.getAttribute('href')).toBe('/restaurants/rest-1/table')
+    expect(TestBed.inject(TableSelectionStore).tableFor('rest-1')).toBeNull()
+    expect(TestBed.inject(CartStore).items().length).toBe(1)
+  })
+
+  it('keeps the generic error for other failures', () => {
+    failWith(400, 'Some items are not available')
+
+    confirmButton().click()
+    fixture.detectChanges()
+
+    expect(el.textContent).toContain('Error al confirmar el pedido. Inténtalo de nuevo.')
+    expect(TestBed.inject(TableSelectionStore).tableFor('rest-1')).toEqual(table)
+  })
+
+  it('asks to choose a table when there is none for the restaurant', () => {
+    TestBed.inject(TableSelectionStore).clear()
+    fixture.detectChanges()
+
+    expect(el.textContent).toContain('Elige una mesa antes de confirmar el pedido.')
+    expect(chooseTableLink()?.getAttribute('href')).toBe('/restaurants/rest-1/table')
+    expect(confirmButton().disabled).toBe(true)
   })
 })
