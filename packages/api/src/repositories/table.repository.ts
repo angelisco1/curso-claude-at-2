@@ -19,7 +19,9 @@ export interface TableRepository {
     findById(id: string): Promise<Table | null>
     findByRestaurantId(restaurantId: string): Promise<Table[]>
     findByRestaurantAndNumber(restaurantId: string, number: number): Promise<Table | null>
+    findAvailable(restaurantId: string, people: number): Promise<Table[]>
     save(table: Table): Promise<void>
+    delete(id: string): Promise<void>
 }
 
 export class SqliteTableRepository implements TableRepository {
@@ -42,6 +44,14 @@ export class SqliteTableRepository implements TableRepository {
         return this.mapToTable(row)
     }
 
+    async findAvailable(restaurantId: string, people: number): Promise<Table[]> {
+        const rows = await this.db.all<TableRow>(
+            `${SELECT_COLUMNS} WHERE restaurant_id = ? AND status = 'libre' AND capacity >= ? ORDER BY capacity, number`,
+            [restaurantId, people]
+        )
+        return rows.map(row => this.mapToTable(row))
+    }
+
     async save(table: Table): Promise<void> {
         const existing = await this.findById(table.id)
         if (existing) {
@@ -55,6 +65,10 @@ export class SqliteTableRepository implements TableRepository {
                 [table.id, table.restaurantId, table.number, table.description, table.capacity, table.status, table.createdAt, table.updatedAt]
             )
         }
+    }
+
+    async delete(id: string): Promise<void> {
+        await this.db.run('DELETE FROM restaurant_tables WHERE id = ?', [id])
     }
 
     private mapToTable(row: TableRow): Table {

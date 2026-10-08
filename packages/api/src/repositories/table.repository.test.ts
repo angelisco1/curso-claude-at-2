@@ -25,7 +25,7 @@ describe('SqliteTableRepository (Integration)', () => {
         await db.initialize()
         repo = new SqliteTableRepository(db)
 
-        for (const id of ['r1', 'r2']) {
+        for (const id of ['r1', 'r2', 'r3', 'r4']) {
             await db.run(
                 'INSERT INTO restaurants (id, name, address, email, phone, owner_first_name, owner_last_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [id, 'La Trattoria', 'Calle Mayor 10', 'info@trattoria.com', '+34 612345678', 'Carlos', 'García', new Date().toISOString(), new Date().toISOString()]
@@ -98,6 +98,47 @@ describe('SqliteTableRepository (Integration)', () => {
         it('should return null when the number does not exist in that restaurant', async () => {
             expect(await repo.findByRestaurantAndNumber('r2', 99)).toBeNull()
             expect(await repo.findByRestaurantAndNumber('missing', 2)).toBeNull()
+        })
+    })
+
+    describe('delete', () => {
+        it('should delete a table', async () => {
+            await repo.save(buildTable({ id: 'to-delete', restaurantId: 'r2', number: 50 }))
+
+            await repo.delete('to-delete')
+
+            expect(await repo.findById('to-delete')).toBeNull()
+        })
+    })
+
+    describe('findAvailable', () => {
+        beforeAll(async () => {
+            await repo.save(buildTable({ id: 'av-six', restaurantId: 'r3', number: 1, capacity: 6 }))
+            await repo.save(buildTable({ id: 'av-four-b', restaurantId: 'r3', number: 3, capacity: 4 }))
+            await repo.save(buildTable({ id: 'av-four-a', restaurantId: 'r3', number: 2, capacity: 4 }))
+            await repo.save(buildTable({ id: 'av-small', restaurantId: 'r3', number: 4, capacity: 2 }))
+            await repo.save(buildTable({ id: 'av-occupied', restaurantId: 'r3', number: 5, capacity: 8, status: 'ocupada' }))
+            await repo.save(buildTable({ id: 'av-reserved', restaurantId: 'r3', number: 6, capacity: 8, status: 'reservada' }))
+            await repo.save(buildTable({ id: 'av-other', restaurantId: 'r4', number: 1, capacity: 8 }))
+        })
+
+        it('should return free tables with enough capacity ordered by capacity and number', async () => {
+            const results = await repo.findAvailable('r3', 3)
+
+            expect(results.map(t => t.id)).toEqual(['av-four-a', 'av-four-b', 'av-six'])
+        })
+
+        it('should exclude occupied, reserved and too small tables and not mix restaurants', async () => {
+            const ids = (await repo.findAvailable('r3', 1)).map(t => t.id)
+
+            expect(ids).toContain('av-small')
+            expect(ids).not.toContain('av-occupied')
+            expect(ids).not.toContain('av-reserved')
+            expect(ids).not.toContain('av-other')
+        })
+
+        it('should return an empty list when no table is big enough', async () => {
+            expect(await repo.findAvailable('r3', 7)).toEqual([])
         })
     })
 })
