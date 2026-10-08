@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing'
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router'
-import { of } from 'rxjs'
+import { HttpErrorResponse } from '@angular/common/http'
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router'
+import { of, throwError } from 'rxjs'
 import { TableSelectionComponent } from './table-selection.component'
 import { TableService } from '../../core/services/table.service'
+import { TableSelectionStore } from '../../core/store/table-selection.store'
 import { Table } from '../../core/models/table.model'
 
 const buildTable = (overrides: Partial<Table>): Table => ({
@@ -26,6 +28,7 @@ describe('TableSelectionComponent', () => {
   let fixture: ComponentFixture<TableSelectionComponent>
   let el: HTMLElement
   let tableService: { getAvailable: ReturnType<typeof vi.fn>; occupy: ReturnType<typeof vi.fn> }
+  let router: Router
 
   const peopleInput = () => el.querySelector<HTMLInputElement>('input[name="people"]')!
   const searchButton = () => findButton('Buscar mesas')
@@ -46,7 +49,15 @@ describe('TableSelectionComponent', () => {
     fixture.detectChanges()
   }
 
+  const selectTableAndContinue = (index: number) => {
+    tableOptions()[index].click()
+    fixture.detectChanges()
+    continueButton().click()
+    fixture.detectChanges()
+  }
+
   beforeEach(async () => {
+    sessionStorage.clear()
     tableService = {
       getAvailable: vi.fn().mockReturnValue(of(tables)),
       occupy: vi.fn()
@@ -60,6 +71,9 @@ describe('TableSelectionComponent', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rest-1' }) } } }
       ]
     }).compileComponents()
+
+    router = TestBed.inject(Router)
+    vi.spyOn(router, 'navigate').mockResolvedValue(true)
 
     fixture = TestBed.createComponent(TableSelectionComponent)
     el = fixture.nativeElement
@@ -118,5 +132,55 @@ describe('TableSelectionComponent', () => {
 
     expect(continueButton().disabled).toBe(false)
     expect(tableOptions()[1].classList).toContain('selected')
+  })
+
+  describe('when pressing Continuar', () => {
+    it('occupies the selected table with the number of people', () => {
+      tableService.occupy.mockReturnValue(of({ ...tables[0], status: 'ocupada' }))
+      search('3')
+
+      selectTableAndContinue(0)
+
+      expect(tableService.occupy).toHaveBeenCalledWith('rest-1', 'table-5', 3)
+    })
+
+    it('stores the occupied table and navigates to the menu', () => {
+      const occupied = { ...tables[0], status: 'ocupada' as const }
+      tableService.occupy.mockReturnValue(of(occupied))
+      search('3')
+
+      selectTableAndContinue(0)
+
+      expect(TestBed.inject(TableSelectionStore).tableFor('rest-1')).toEqual(occupied)
+      expect(router.navigate).toHaveBeenCalledWith(['/restaurants', 'rest-1'])
+    })
+
+    it('shows a message and reloads the tables when the table is no longer available', () => {
+      tableService.occupy.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { error: 'TableNotAvailableError', message: 'Table is not available' } }))
+      )
+      search('3')
+      tableService.getAvailable.mockReturnValue(of([tables[1]]))
+
+      selectTableAndContinue(0)
+
+      expect(el.textContent).toContain('Esa mesa ya no está disponible. Elige otra.')
+      expect(tableService.getAvailable).toHaveBeenCalledTimes(2)
+      expect(tableService.getAvailable).toHaveBeenLastCalledWith('rest-1', 3)
+      expect(tableOptions().length).toBe(1)
+      expect(continueButton().disabled).toBe(true)
+      expect(TestBed.inject(TableSelectionStore).selected()).toBeNull()
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
+
+    it('shows a generic error when occupying fails for another reason', () => {
+      tableService.occupy.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })))
+      search('3')
+
+      selectTableAndContinue(0)
+
+      expect(el.textContent).toContain('No se pudo ocupar la mesa. Inténtalo de nuevo.')
+      expect(router.navigate).not.toHaveBeenCalled()
+    })
   })
 })

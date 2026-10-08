@@ -1,6 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core'
-import { ActivatedRoute, RouterLink } from '@angular/router'
+import { HttpErrorResponse } from '@angular/common/http'
+import { ActivatedRoute, Router, RouterLink } from '@angular/router'
 import { TableService } from '../../core/services/table.service'
+import { TableSelectionStore } from '../../core/store/table-selection.store'
 import { Table } from '../../core/models/table.model'
 
 @Component({
@@ -33,6 +35,10 @@ import { Table } from '../../core/models/table.model'
         <button type="button" class="btn btn-primary" [disabled]="!canSearch() || loading()" (click)="search()">Buscar mesas</button>
       </div>
 
+      @if (occupyError()) {
+        <div class="alert-error">{{ occupyError() }}</div>
+      }
+
       @if (loading()) {
         <div class="spinner"></div>
       } @else if (error()) {
@@ -59,7 +65,7 @@ import { Table } from '../../core/models/table.model'
             }
           </div>
           <div class="actions">
-            <button type="button" class="btn btn-primary" [disabled]="!selectedTable()">Continuar</button>
+            <button type="button" class="btn btn-primary" [disabled]="!selectedTable() || occupying()" (click)="occupySelected()">Continuar</button>
           </div>
         }
       }
@@ -93,6 +99,9 @@ import { Table } from '../../core/models/table.model'
       gap: 16px;
       margin-bottom: 24px;
     }
+    .alert-error {
+      margin-bottom: 16px;
+    }
     .table-option {
       text-align: left;
       padding: 16px 20px;
@@ -124,7 +133,9 @@ import { Table } from '../../core/models/table.model'
 })
 export class TableSelectionComponent {
   private readonly route = inject(ActivatedRoute)
+  private readonly router = inject(Router)
   private readonly tableService = inject(TableService)
+  private readonly tableSelectionStore = inject(TableSelectionStore)
 
   readonly restaurantId = this.route.snapshot.paramMap.get('id')!
   readonly people = signal<number | null>(null)
@@ -133,6 +144,8 @@ export class TableSelectionComponent {
   readonly selectedTable = signal<Table | null>(null)
   readonly loading = signal(false)
   readonly error = signal<string | null>(null)
+  readonly occupying = signal(false)
+  readonly occupyError = signal<string | null>(null)
 
   readonly canSearch = computed(() => {
     const people = this.people()
@@ -148,6 +161,37 @@ export class TableSelectionComponent {
     const people = this.people()
     if (!this.canSearch() || people === null) return
 
+    this.occupyError.set(null)
+    this.loadTables(people)
+  }
+
+  occupySelected(): void {
+    const table = this.selectedTable()
+    const people = this.searchedPeople()
+    if (!table || people === null) return
+
+    this.occupying.set(true)
+    this.occupyError.set(null)
+
+    this.tableService.occupy(this.restaurantId, table.id, people).subscribe({
+      next: (occupied) => {
+        this.occupying.set(false)
+        this.tableSelectionStore.select(this.restaurantId, occupied)
+        this.router.navigate(['/restaurants', this.restaurantId])
+      },
+      error: (err: HttpErrorResponse) => {
+        this.occupying.set(false)
+        if (err.status === 409 || err.status === 404) {
+          this.occupyError.set('Esa mesa ya no está disponible. Elige otra.')
+          this.loadTables(people)
+        } else {
+          this.occupyError.set('No se pudo ocupar la mesa. Inténtalo de nuevo.')
+        }
+      }
+    })
+  }
+
+  private loadTables(people: number): void {
     this.loading.set(true)
     this.error.set(null)
     this.selectedTable.set(null)
