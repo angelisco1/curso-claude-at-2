@@ -69,4 +69,35 @@ describe('SqliteTableRepository (Integration)', () => {
             expect(found?.updatedAt).toBe('2026-01-02T00:00:00.000Z')
         })
     })
+
+    describe('findByRestaurantId', () => {
+        it('should return the tables of a restaurant ordered by number', async () => {
+            await repo.save(buildTable({ id: 'list-3', restaurantId: 'r2', number: 3 }))
+            await repo.save(buildTable({ id: 'list-1', restaurantId: 'r2', number: 1 }))
+            await repo.save(buildTable({ id: 'list-2', restaurantId: 'r2', number: 2 }))
+
+            const results = await repo.findByRestaurantId('r2')
+
+            expect(results.map(t => t.id)).toEqual(['list-1', 'list-2', 'list-3'])
+        })
+
+        it('should not include tables of other restaurants', async () => {
+            const results = await repo.findByRestaurantId('r1')
+
+            expect(results.every(t => t.restaurantId === 'r1')).toBe(true)
+        })
+    })
+
+    describe('findByRestaurantAndNumber', () => {
+        it('should find a table by restaurant and number', async () => {
+            const found = await repo.findByRestaurantAndNumber('r2', 2)
+
+            expect(found?.id).toBe('list-2')
+        })
+
+        it('should return null when the number does not exist in that restaurant', async () => {
+            expect(await repo.findByRestaurantAndNumber('r2', 99)).toBeNull()
+            expect(await repo.findByRestaurantAndNumber('missing', 2)).toBeNull()
+        })
+    })
 })
